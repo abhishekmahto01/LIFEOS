@@ -1,0 +1,24 @@
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import MainLayout from './components/MainLayout';
+import Dashboard from './pages/Dashboard';
+import CareerModule from './pages/CareerModule';
+import AdminModule from './pages/admin/AdminModule';
+import Login from './pages/Login';
+
+function App() {
+  return (
+    <Router>
+      <Routes>
+        <Route path="/login" element={<Login />} />
+        <Route element={<MainLayout />}>
+          <Route path="/dashboard" element={<Dashboard />} />
+          <Route path="/career" element={<CareerModule />} />
+          <Route path="/admin" element={<AdminModule />} />
+        </Route>
+        <Route path="*" element={<Navigate to="/login" replace />} />
+      </Routes>
+    </Router>
+  );
+}
+
+export default App;
