@@ -1,0 +1,80 @@
+:root {
+    --ink: #1e2233;
+    --muted: #8a8fa3;
+    --accent: #6f5af6;
+    --accent-soft: #f1eeff;
+    --accent-2: #22c3a6;
+    --border: #eef0f5;
+    --hover-bg: #f6f5ff;
+  }
+  
+  .career-page {
+    padding: 32px;
+    font-family: "Inter", system-ui, -apple-system, sans-serif;
+  }
+  
+  .career-title {
+    font-size: 22px;
+    font-weight: 700;
+    color: var(--ink);
+    margin: 0 0 20px;
+    letter-spacing: -0.3px;
+  }
+  
+  .career-card {
+    width: 360px;
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    overflow: hidden;
+    background: #fff;
+    box-shadow: 0 2px 10px rgba(30, 34, 51, 0.04);
+  }
+  
+  .career-card-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 18px;
+    cursor: pointer;
+    background: var(--accent-soft);
+    font-weight: 600;
+    color: var(--ink);
+  }
+  
+  .career-card-label {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    color: var(--accent);
+  }
+  
+  .career-chevron {
+    color: var(--accent);
+    transition: transform 0.18s ease;
+  }
+  
+  .career-chevron.open {
+    transform: rotate(180deg);
+  }
+  
+  .career-card-body {
+    display: flex;
+    flex-direction: column;
+  }
+  
+  .career-card-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 13px 18px;
+    border-top: 1px solid var(--border);
+    cursor: pointer;
+    color: var(--ink);
+    font-size: 14px;
+    transition: background 0.15s ease;
+  }
+  
+  .career-card-item:hover {
+    background: var(--hover-bg);
+    color: var(--accent);
+  }
