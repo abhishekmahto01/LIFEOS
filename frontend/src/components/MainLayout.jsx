@@ -1,10 +1,40 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate, Outlet } from "react-router-dom";
 
 function MainLayout() {
   const navigate = useNavigate();
+
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [passwords, setPasswords] = useState({ current: "", new: "", confirm: "" });
+
+  const [passwords, setPasswords] = useState({
+    current: "",
+    new: "",
+    confirm: "",
+  });
+
+  const [currentTime, setCurrentTime] = useState("");
+
+  const user = JSON.parse(localStorage.getItem("user") || "{}");
+
+  useEffect(() => {
+    const updateTime = () => {
+      const now = new Date();
+
+      setCurrentTime(
+        now.toLocaleTimeString("en-IN", {
+          hour: "2-digit",
+          minute: "2-digit",
+          second: "2-digit",
+        })
+      );
+    };
+
+    updateTime();
+
+    const timer = setInterval(updateTime, 1000);
+
+    return () => clearInterval(timer);
+  }, []);
 
   const handleLogout = () => {
     localStorage.removeItem("user");
@@ -13,55 +43,328 @@ function MainLayout() {
 
   const handleChangePasswordSubmit = (e) => {
     e.preventDefault();
+
     if (passwords.new !== passwords.confirm) {
-      alert("New password and Confirm password do not match!");
+      alert("New password and Confirm Password do not match!");
       return;
     }
+
     alert("Password changed successfully!");
-    setPasswords({ current: "", new: "", confirm: "" });
+
+    setPasswords({
+      current: "",
+      new: "",
+      confirm: "",
+    });
+
     setIsModalOpen(false);
   };
 
   return (
-    <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column", backgroundColor: "#f4f6f9" }}>
-      <header style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 20px", background: "#fff", borderBottom: "1px solid #e9ecef" }}>
-        <div onClick={() => navigate("/dashboard")} style={{ cursor: "pointer", fontWeight: "bold", fontSize: "18px", color: "#007bff", border: "1.5px solid #007bff", borderRadius: 8, padding: "6px 14px" }}>
+    <div
+      style={{
+        minHeight: "100vh",
+        display: "flex",
+        flexDirection: "column",
+        backgroundColor: "#f4f6f9",
+      }}
+    >
+      {/* Header */}
+      <header
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          padding: "12px 20px",
+          background: "#ffffff",
+          borderBottom: "1px solid #e9ecef",
+          boxShadow: "0 1px 4px rgba(0,0,0,0.08)",
+          position: "sticky",
+          top: 0,
+          zIndex: 100,
+        }}
+      >
+        {/* Logo */}
+        <div
+          onClick={() => navigate("/dashboard")}
+          style={{
+            cursor: "pointer",
+            fontWeight: "700",
+            fontSize: "20px",
+            color: "#0d6efd",
+            border: "2px solid #0d6efd",
+            borderRadius: "10px",
+            padding: "8px 18px",
+          }}
+        >
           Life OS
         </div>
-        <div style={{ display: "flex", gap: "10px" }}>
-          <button onClick={() => setIsModalOpen(true)} style={{ padding: "8px 15px", border: "1px solid #ced4da", borderRadius: "4px", background: "#fff", cursor: "pointer", fontSize: 14 }}>
+
+        {/* Right Section */}
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: "15px",
+          }}
+        >
+          {/* Time */}
+          <div
+            style={{
+              fontSize: "17px",
+              fontWeight: "600",
+              color: "#495057",
+              minWidth: "110px",
+            }}
+          >
+            {currentTime}
+          </div>
+
+          {/* User Profile */}
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "10px",
+              background: "#f8f9fa",
+              border: "1px solid #dee2e6",
+              borderRadius: "25px",
+              padding: "6px 12px",
+            }}
+          >
+            <div
+              style={{
+                width: "36px",
+                height: "36px",
+                borderRadius: "50%",
+                background: "#0d6efd",
+                color: "#fff",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                fontWeight: "bold",
+                fontSize: "15px",
+              }}
+            >
+              {(user?.username || "User").charAt(0).toUpperCase()}
+            </div>
+
+            <div>
+              <div
+                style={{
+                  fontWeight: "600",
+                  fontSize: "14px",
+                  color: "#212529",
+                }}
+              >
+                {user?.username || "User"}
+              </div>
+
+              <div
+                style={{
+                  fontSize: "12px",
+                  color: "#6c757d",
+                }}
+              >
+                Logged In
+              </div>
+            </div>
+          </div>
+
+          {/* Change Password */}
+          <button
+            onClick={() => setIsModalOpen(true)}
+            style={{
+              padding: "10px 16px",
+              border: "1px solid #ced4da",
+              borderRadius: "6px",
+              background: "#ffffff",
+              cursor: "pointer",
+              fontWeight: "500",
+            }}
+          >
             Change Password
           </button>
-          <button onClick={handleLogout} style={{ padding: "8px 15px", background: "#dc3545", color: "#fff", border: "none", borderRadius: "4px", cursor: "pointer", fontSize: 14, fontWeight: 600 }}>
+
+          {/* Logout */}
+          <button
+            onClick={handleLogout}
+            style={{
+              padding: "10px 16px",
+              background: "#dc3545",
+              color: "#ffffff",
+              border: "none",
+              borderRadius: "6px",
+              cursor: "pointer",
+              fontWeight: "600",
+            }}
+          >
             ⏻ Logout
           </button>
         </div>
       </header>
 
-      <div style={{ flex: 1, padding: "24px" }}>
+      {/* Page Content */}
+      <main
+        style={{
+          flex: 1,
+          padding: "24px",
+        }}
+      >
         <Outlet />
-      </div>
+      </main>
 
+      {/* Change Password Modal */}
       {isModalOpen && (
-        <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, backgroundColor: "rgba(0,0,0,0.5)", display: "flex", justifyContent: "center", alignItems: "center", zIndex: 1000 }}>
-          <div style={{ background: "#fff", padding: "24px", borderRadius: "8px", width: "350px", boxShadow: "0 4px 15px rgba(0,0,0,0.2)" }}>
-            <h3 style={{ marginTop: 0, marginBottom: "15px" }}>Change Password</h3>
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            backgroundColor: "rgba(0,0,0,0.5)",
+            display: "flex",
+            justifyContent: "center",
+            alignItems: "center",
+            zIndex: 9999,
+          }}
+        >
+          <div
+            style={{
+              background: "#ffffff",
+              padding: "24px",
+              borderRadius: "10px",
+              width: "400px",
+              boxShadow: "0 5px 20px rgba(0,0,0,0.2)",
+            }}
+          >
+            <h3 style={{ marginTop: 0, marginBottom: "20px" }}>
+              Change Password
+            </h3>
+
             <form onSubmit={handleChangePasswordSubmit}>
-              <div style={{ marginBottom: "12px", display: "flex", flexDirection: "column" }}>
-                <label style={{ fontSize: "12px", fontWeight: "bold", marginBottom: "5px" }}>Current Password</label>
-                <input type="password" required style={{ padding: "8px", border: "1px solid #ccc", borderRadius: "4px" }} value={passwords.current} onChange={(e) => setPasswords({...passwords, current: e.target.value})} />
+              <div style={{ marginBottom: "12px" }}>
+                <label
+                  style={{
+                    display: "block",
+                    marginBottom: "5px",
+                    fontWeight: "600",
+                  }}
+                >
+                  Current Password
+                </label>
+
+                <input
+                  type="password"
+                  required
+                  value={passwords.current}
+                  onChange={(e) =>
+                    setPasswords({
+                      ...passwords,
+                      current: e.target.value,
+                    })
+                  }
+                  style={{
+                    width: "100%",
+                    padding: "10px",
+                    border: "1px solid #ced4da",
+                    borderRadius: "6px",
+                  }}
+                />
               </div>
-              <div style={{ marginBottom: "12px", display: "flex", flexDirection: "column" }}>
-                <label style={{ fontSize: "12px", fontWeight: "bold", marginBottom: "5px" }}>New Password</label>
-                <input type="password" required style={{ padding: "8px", border: "1px solid #ccc", borderRadius: "4px" }} value={passwords.new} onChange={(e) => setPasswords({...passwords, new: e.target.value})} />
+
+              <div style={{ marginBottom: "12px" }}>
+                <label
+                  style={{
+                    display: "block",
+                    marginBottom: "5px",
+                    fontWeight: "600",
+                  }}
+                >
+                  New Password
+                </label>
+
+                <input
+                  type="password"
+                  required
+                  value={passwords.new}
+                  onChange={(e) =>
+                    setPasswords({
+                      ...passwords,
+                      new: e.target.value,
+                    })
+                  }
+                  style={{
+                    width: "100%",
+                    padding: "10px",
+                    border: "1px solid #ced4da",
+                    borderRadius: "6px",
+                  }}
+                />
               </div>
-              <div style={{ marginBottom: "15px", display: "flex", flexDirection: "column" }}>
-                <label style={{ fontSize: "12px", fontWeight: "bold", marginBottom: "5px" }}>Confirm New Password</label>
-                <input type="password" required style={{ padding: "8px", border: "1px solid #ccc", borderRadius: "4px" }} value={passwords.confirm} onChange={(e) => setPasswords({...passwords, confirm: e.target.value})} />
+
+              <div style={{ marginBottom: "20px" }}>
+                <label
+                  style={{
+                    display: "block",
+                    marginBottom: "5px",
+                    fontWeight: "600",
+                  }}
+                >
+                  Confirm Password
+                </label>
+
+                <input
+                  type="password"
+                  required
+                  value={passwords.confirm}
+                  onChange={(e) =>
+                    setPasswords({
+                      ...passwords,
+                      confirm: e.target.value,
+                    })
+                  }
+                  style={{
+                    width: "100%",
+                    padding: "10px",
+                    border: "1px solid #ced4da",
+                    borderRadius: "6px",
+                  }}
+                />
               </div>
-              <div style={{ display: "flex", justifyContent: "flex-end", gap: "10px" }}>
-                <button type="button" onClick={() => setIsModalOpen(false)} style={{ padding: "8px 12px", border: "1px solid #ccc", borderRadius: "4px", background: "#fff", cursor: "pointer" }}>Cancel</button>
-                <button type="submit" style={{ padding: "8px 12px", background: "#007bff", color: "#fff", border: "none", borderRadius: "4px", cursor: "pointer" }}>Update</button>
+
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "flex-end",
+                  gap: "10px",
+                }}
+              >
+                <button
+                  type="button"
+                  onClick={() => setIsModalOpen(false)}
+                  style={{
+                    padding: "10px 15px",
+                    border: "1px solid #ced4da",
+                    borderRadius: "6px",
+                    background: "#fff",
+                    cursor: "pointer",
+                  }}
+                >
+                  Cancel
+                </button>
+
+                <button
+                  type="submit"
+                  style={{
+                    padding: "10px 15px",
+                    background: "#0d6efd",
+                    color: "#fff",
+                    border: "none",
+                    borderRadius: "6px",
+                    cursor: "pointer",
+                  }}
+                >
+                  Update
+                </button>
               </div>
             </form>
           </div>
