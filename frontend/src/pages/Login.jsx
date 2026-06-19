@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useState,useEffect } from "react";
+import { useNavigate,useSearchParams } from "react-router-dom";
 import axios from "axios";
 import "./Login.css";
 import logo from "../assets/images/lifeos-logo.png";
@@ -12,6 +12,24 @@ function Login() {
   const [loading, setLoading] = useState(false);
 
   const navigate = useNavigate();
+
+  const [searchParams] = useSearchParams();
+
+useEffect(() => {
+  // DEV ONLY AUTO LOGIN
+  const userParam = searchParams.get("user");
+
+  if (userParam) {
+    const mockUser = {
+      username: userParam,
+      role: "Admin",
+    };
+
+    localStorage.setItem("user", JSON.stringify(mockUser));
+
+    navigate("/dashboard");
+  }
+}, [searchParams, navigate]);
 
   const handleSignIn = async () => {
     setError("");
