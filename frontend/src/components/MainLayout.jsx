@@ -90,24 +90,46 @@ function MainLayout() {
           gap: "12px",
         }}
       >
-        {/* Logo */}
-        <div
-          onClick={() => navigate("/dashboard")}
-          style={{
-            cursor: "pointer",
-            fontWeight: "800",
-            fontSize: "20px",
-            color: "var(--accent-blue, #3b82f6)",
-            border: "2px solid var(--accent-blue, #3b82f6)",
-            borderRadius: "10px",
-            padding: "6px 16px",
-            letterSpacing: "-0.02em",
-            display: "flex",
-            alignItems: "center",
-            gap: "6px",
-          }}
-        >
-          <span>Life OS</span>
+        {/* Logo & Portfolio Shortcut */}
+        <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+          <div
+            onClick={() => navigate("/dashboard")}
+            style={{
+              cursor: "pointer",
+              fontWeight: "800",
+              fontSize: "20px",
+              color: "var(--accent-blue, #3b82f6)",
+              border: "2px solid var(--accent-blue, #3b82f6)",
+              borderRadius: "10px",
+              padding: "6px 16px",
+              letterSpacing: "-0.02em",
+              display: "flex",
+              alignItems: "center",
+              gap: "6px",
+            }}
+          >
+            <span>Life OS</span>
+          </div>
+
+          <button
+            onClick={() => navigate("/portfolio")}
+            style={{
+              cursor: "pointer",
+              fontWeight: "700",
+              fontSize: "12px",
+              color: "#38bdf8",
+              background: "rgba(56, 189, 248, 0.12)",
+              border: "1px solid rgba(56, 189, 248, 0.3)",
+              borderRadius: "8px",
+              padding: "7px 12px",
+              display: "flex",
+              alignItems: "center",
+              gap: "6px",
+            }}
+            title="Open Abhishek's Data Science Portfolio"
+          >
+            <span>PORTFOLIO ↗</span>
+          </button>
         </div>
 
         {/* Right Section */}

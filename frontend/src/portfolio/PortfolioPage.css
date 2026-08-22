@@ -1,0 +1,57 @@
+/* ========================================================================= */
+/* ABHISHEK — PORTFOLIO MASTER THEME & RESET */
+/* ========================================================================= */
+.portfolio-master-root {
+  min-height: 100vh;
+  background-color: #07090e;
+  color: #f8fafc;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, "Helvetica Neue", sans-serif;
+  overflow-x: hidden;
+  position: relative;
+  selection-background-color: rgba(56, 189, 248, 0.3);
+}
+
+.portfolio-master-root ::selection {
+  background: rgba(56, 189, 248, 0.3);
+  color: #ffffff;
+}
+
+.portfolio-main-content {
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  z-index: 10;
+}
+
+/* Base Utility Tokens */
+.text-cyan {
+  color: #38bdf8 !important;
+}
+
+.text-emerald {
+  color: #34d399 !important;
+}
+
+.text-amber {
+  color: #fbbf24 !important;
+}
+
+.text-red {
+  color: #ef4444 !important;
+}
+
+/* Smooth Scrolling */
+html {
+  scroll-behavior: smooth;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+  * {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

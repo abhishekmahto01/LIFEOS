@@ -2,6 +2,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-d
 
 import MainLayout from "./components/MainLayout";
 
+import PortfolioPage from "./portfolio/PortfolioPage";
 import Dashboard from "./pages/Dashboard";
 import CareerModule from "./pages/CareerModule";
 import AdminModule from "./pages/admin/AdminModule";
@@ -15,6 +16,11 @@ function App() {
   return (
     <Router>
       <Routes>
+        {/* Abhishek — Interactive Data Science Portfolio Landing */}
+        <Route path="/" element={<PortfolioPage />} />
+        <Route path="/portfolio" element={<PortfolioPage />} />
+
+        {/* LifeOS System Access & Modules */}
         <Route path="/login" element={<Login />} />
 
         <Route element={<MainLayout />}>
@@ -26,7 +32,7 @@ function App() {
           <Route path="/admin" element={<AdminModule />} />
         </Route>
 
-        <Route path="*" element={<Navigate to="/login" replace />} />
+        <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </Router>
   );

@@ -1,0 +1,339 @@
+.hero-control-room-section {
+  min-height: 100vh;
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 120px 24px 80px;
+  background: #07090e;
+  color: #f8fafc;
+}
+
+.hero-data-canvas {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.hero-grid-ambient-overlay {
+  position: absolute;
+  inset: 0;
+  background-image: 
+    linear-gradient(rgba(56, 189, 248, 0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(56, 189, 248, 0.03) 1px, transparent 1px);
+  background-size: 44px 44px;
+  background-position: center center;
+  pointer-events: none;
+  z-index: 2;
+}
+
+.hero-control-container {
+  position: relative;
+  z-index: 10;
+  max-width: 1000px;
+  width: 100%;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 32px;
+}
+
+/* Boot Sequence Stages */
+.boot-phase-0 .hero-identity-block,
+.boot-phase-0 .hero-console-card,
+.boot-phase-0 .hero-actions-row {
+  opacity: 0;
+  transform: translateY(20px);
+}
+
+.boot-phase-1 .hero-identity-block {
+  opacity: 1;
+  transform: translateY(0);
+  transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.boot-phase-2 .hero-console-card {
+  opacity: 1;
+  transform: translateY(0);
+  transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.boot-phase-3 .hero-actions-row {
+  opacity: 1;
+  transform: translateY(0);
+  transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* 1. Top Telemetry Indicator */
+.hero-telemetry-tag {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: rgba(15, 23, 42, 0.8);
+  border: 1px solid rgba(56, 189, 248, 0.3);
+  padding: 6px 16px;
+  border-radius: 20px;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  backdrop-filter: blur(10px);
+  box-shadow: 0 0 20px rgba(56, 189, 248, 0.15);
+}
+
+.telemetry-ping {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: #38bdf8;
+}
+
+.ping-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #10b981;
+  box-shadow: 0 0 8px #10b981;
+}
+
+.telemetry-divider {
+  color: #475569;
+}
+
+.telemetry-focus {
+  color: #94a3b8;
+}
+
+/* 2. Centerpiece Identity */
+.hero-identity-block {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+
+.hero-command-prompt {
+  font-family: "JetBrains Mono", monospace;
+  font-size: 13px;
+  color: #06b6d4;
+  letter-spacing: 0.04em;
+}
+
+.hero-name-heading {
+  margin: 0;
+  font-size: clamp(48px, 9vw, 84px);
+  font-weight: 900;
+  letter-spacing: -0.04em;
+  color: #ffffff;
+  line-height: 1;
+  text-shadow: 0 0 40px rgba(56, 189, 248, 0.25);
+}
+
+.hero-role-badge-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 15px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+}
+
+.hero-role-current {
+  color: #38bdf8;
+  background: rgba(56, 189, 248, 0.12);
+  border: 1px solid rgba(56, 189, 248, 0.3);
+  padding: 4px 14px;
+  border-radius: 8px;
+}
+
+.hero-role-arrow {
+  color: #64748b;
+}
+
+.hero-role-target {
+  color: #34d399;
+  background: rgba(16, 185, 129, 0.12);
+  border: 1px solid rgba(16, 185, 129, 0.3);
+  padding: 4px 14px;
+  border-radius: 8px;
+}
+
+.hero-core-manifesto {
+  margin: 8px 0 0;
+  font-size: 18px;
+  color: #cbd5e1;
+  font-weight: 500;
+  max-width: 580px;
+  line-height: 1.5;
+  font-style: italic;
+}
+
+/* 3. The Live Control Console Card */
+.hero-console-card {
+  width: 100%;
+  background: rgba(11, 17, 32, 0.85);
+  border: 1px solid rgba(56, 189, 248, 0.25);
+  border-radius: 18px;
+  overflow: hidden;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.6), 0 0 30px rgba(56, 189, 248, 0.1);
+  backdrop-filter: blur(16px);
+}
+
+.console-header-strip {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 18px;
+  background: rgba(255, 255, 255, 0.03);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  color: #94a3b8;
+}
+
+.console-title-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.text-cyan {
+  color: #38bdf8;
+}
+
+.console-dots {
+  display: flex;
+  gap: 6px;
+}
+
+.c-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+.c-dot.red { background: #ef4444; }
+.c-dot.yellow { background: #eab308; }
+.c-dot.green { background: #10b981; }
+
+.console-metrics-grid {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  divide-x: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.c-metric-cell {
+  padding: 18px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  text-align: center;
+  border-right: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.c-metric-cell:last-child {
+  border-right: none;
+}
+
+.cm-label {
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  color: #64748b;
+  text-transform: uppercase;
+}
+
+.cm-val {
+  font-size: 17px;
+  font-weight: 900;
+  letter-spacing: -0.01em;
+}
+
+.text-white { color: #ffffff; }
+.text-emerald { color: #34d399; }
+.text-amber { color: #fbbf24; }
+
+.cm-sub {
+  font-size: 9px;
+  color: #94a3b8;
+}
+
+/* 4. Action Controls */
+.hero-actions-row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.btn-hero-primary {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: #38bdf8;
+  color: #07090e;
+  border: none;
+  padding: 14px 28px;
+  border-radius: 12px;
+  font-size: 14px;
+  font-weight: 900;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  box-shadow: 0 4px 20px rgba(56, 189, 248, 0.4);
+  transition: all 0.25s ease;
+}
+
+.btn-hero-primary:hover {
+  background: #7dd3fc;
+  transform: translateY(-2px);
+  box-shadow: 0 8px 30px rgba(56, 189, 248, 0.6);
+}
+
+.btn-hero-secondary {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: rgba(15, 23, 42, 0.8);
+  border: 1px solid rgba(239, 68, 68, 0.4);
+  color: #f8fafc;
+  padding: 14px 26px;
+  border-radius: 12px;
+  font-size: 14px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  transition: all 0.25s ease;
+}
+
+.btn-hero-secondary:hover {
+  background: rgba(239, 68, 68, 0.15);
+  border-color: #ef4444;
+  transform: translateY(-2px);
+  box-shadow: 0 0 25px rgba(239, 68, 68, 0.35);
+}
+
+.btn-bolt-icon {
+  color: #ef4444;
+}
+
+@media (max-width: 900px) {
+  .console-metrics-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+  .c-metric-cell:nth-child(3) {
+    border-right: none;
+  }
+}
+
+@media (max-width: 600px) {
+  .console-metrics-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .c-metric-cell:nth-child(2n) {
+    border-right: none;
+  }
+}

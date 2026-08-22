@@ -1,0 +1,166 @@
+.lifeos-warp-portal {
+  position: fixed;
+  inset: 0;
+  z-index: 9999999;
+  background: #07090e;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, monospace;
+}
+
+/* 1. Road Stream Grid */
+.road-stream-grid {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  perspective: 600px;
+  opacity: 0.6;
+}
+
+.road-line {
+  position: absolute;
+  left: 0;
+  width: 100%;
+  height: 2px;
+  background: linear-gradient(90deg, transparent 0%, rgba(56, 189, 248, 0.8) 50%, transparent 100%);
+  transform-origin: 50% 100%;
+  animation: streamFly 0.4s linear infinite;
+}
+
+@keyframes streamFly {
+  0% {
+    transform: scaleX(0.2) translateY(0);
+    opacity: 0;
+  }
+  50% {
+    opacity: 1;
+  }
+  100% {
+    transform: scaleX(2.5) translateY(120px);
+    opacity: 0;
+  }
+}
+
+/* 2. S1000 Dual Headlight Flare */
+.s1000-headlight-lens-flare {
+  position: absolute;
+  width: 300px;
+  height: 300px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+  transform: scale(0.6);
+  opacity: 0;
+}
+
+.phase-2 .s1000-headlight-lens-flare,
+.phase-3 .s1000-headlight-lens-flare {
+  opacity: 1;
+  transform: scale(2.8);
+}
+
+.lens-core {
+  width: 120px;
+  height: 120px;
+  border-radius: 50%;
+  background: radial-gradient(circle, #ffffff 0%, rgba(56, 189, 248, 0.9) 40%, rgba(2, 132, 199, 0) 70%);
+  filter: blur(10px);
+}
+
+.lens-beam {
+  position: absolute;
+  width: 180vw;
+  height: 24px;
+  background: linear-gradient(90deg, rgba(56, 189, 248, 0.9) 0%, rgba(255, 255, 255, 1) 50%, rgba(56, 189, 248, 0.9) 100%);
+  filter: blur(12px);
+}
+
+/* 3. Telemetry HUD */
+.warp-hud-overlay {
+  position: relative;
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  text-align: center;
+  background: rgba(11, 17, 32, 0.88);
+  border: 1px solid rgba(56, 189, 248, 0.4);
+  padding: 24px 36px;
+  border-radius: 20px;
+  box-shadow: 0 0 40px rgba(56, 189, 248, 0.3);
+  backdrop-filter: blur(16px);
+  animation: hudScaleIn 0.35s ease-out;
+}
+
+@keyframes hudScaleIn {
+  from { transform: scale(0.9); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}
+
+.warp-brand-badge {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(56, 189, 248, 0.15);
+  border: 1px solid rgba(56, 189, 248, 0.4);
+  color: #38bdf8;
+  padding: 6px 14px;
+  border-radius: 20px;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+}
+
+.warp-bolt {
+  color: #f59e0b;
+}
+
+.warp-progress-text {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 700;
+  color: #f8fafc;
+  letter-spacing: 0.04em;
+}
+
+.hud-icon {
+  color: #38bdf8;
+}
+
+.warp-status-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+  color: #94a3b8;
+  font-weight: 600;
+}
+
+.live-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #10b981;
+  box-shadow: 0 0 8px #10b981;
+}
+
+/* 4. Whiteout Hyperdrive Flash */
+.hyperdrive-whiteout {
+  position: absolute;
+  inset: 0;
+  background: #ffffff;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.phase-3 .hyperdrive-whiteout {
+  opacity: 1;
+}
