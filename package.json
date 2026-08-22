@@ -1,0 +1,18 @@
+{
+  "name": "lifeos",
+  "version": "1.0.0",
+  "private": true,
+  "description": "LifeOS - Unified Full Stack Workspace",
+  "scripts": {
+    "dev": "concurrently -n \"BACKEND,FRONTEND\" -c \"cyan.bold,magenta.bold\" --prefix \"[{name}]\" \"npm run backend\" \"npm run frontend\"",
+    "start": "npm run dev",
+    "backend": "cd backend && { [ -f ../venv/bin/python ] && ../venv/bin/python app.py || python3 app.py || python app.py; }",
+    "frontend": "npm run dev --prefix frontend",
+    "build:frontend": "npm run build --prefix frontend",
+    "install:frontend": "npm install --prefix frontend",
+    "install:all": "npm install && npm run install:frontend"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2"
+  }
+}
