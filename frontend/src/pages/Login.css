@@ -1,216 +1,459 @@
-* {
-    margin: 0;
-    padding: 0;
-    box-sizing: border-box;
-    font-family: "Segoe UI", sans-serif;
-  }
-  
-  body {
-    background: #ececec;
-  }
-  
-  .login-page {
-    min-height: 100vh;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    background: radial-gradient(circle at top left, #f7f7f7, #e9e9e9);
-  }
-  
-  .login-box {
-    width: 1200px;
-    height: 650px;
-    background: rgba(255,255,255,0.8);
-    border-radius: 30px;
-    overflow: hidden;
-    display: flex;
-    box-shadow: 0 20px 50px rgba(0,0,0,.12);
-  }
-  
-  .left-panel {
-    width: 50%;
-    padding: 15px;
-  }
-  
-  .brand-card {
-    height: 100%;
-    border-radius: 25px;
-    background: linear-gradient(
-      135deg,
-      #cfa6ff,
-      #b28dff
-    );
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    align-items: center;
-    padding: 40px;
-  }
-  
-  .logo {
-    width: 300px;
-    margin-bottom: 20px;
-  }
-  
-  .brand-card h2 {
-    color: white;
-    font-size: 40px;
-    margin-top: 10px;
-  }
-  
-  .brand-card p {
-    color: white;
-    margin-top: 10px;
-    opacity: 0.9;
-    letter-spacing: 1px;
-  }
-  
-  .right-panel {
-    width: 50%;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-  }
-  
-  .login-form {
-    width: 380px;
-  }
-  
-  .login-form h1 {
-    text-align: center;
-    font-size: 48px;
-    color: #1f2937;
-  }
-  
-  .login-form p {
-    text-align: center;
-    color: #6b7280;
-    margin: 10px 0 35px;
-  }
-  
-  .login-form input {
-    width: 100%;
-    padding: 16px;
-    border: none;
-    border-radius: 12px;
-    background: #f4f4f4;
-    margin-bottom: 18px;
-    font-size: 16px;
-  }
-  
-  .login-form input:focus {
-    outline: 2px solid #8b5cf6;
-  }
-  
-  .login-form button {
-    width: 100%;
-    padding: 16px;
-    border: none;
-    border-radius: 12px;
-    background: #ff5c6c;
-    color: white;
-    font-size: 18px;
-    font-weight: 600;
-    cursor: pointer;
-    transition: 0.3s;
-  }
-  
-  .login-form button:hover {
-    transform: translateY(-2px);
-  }
-  
-  .footer-text {
-    text-align: center;
-    margin-top: 20px;
-    color: #94a3b8;
-    font-size: 14px;
-  }
+.login-cinema-root {
+  min-height: 100vh;
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+  color: #0f172a;
+  background: #ea580c;
+  user-select: none;
+}
 
-  .password-wrapper {
-    position: relative;
-    margin-bottom: 15px;
-  }
-  
-  .password-wrapper input {
-    margin-bottom: 0;
-  }
-  
-  .eye-icon {
-    position: absolute;
-    right: 18px;
-    top: 50%;
-    transform: translateY(-50%);
-    cursor: pointer;
-    font-size: 18px;
-  }
-  
-  .login-options {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 20px;
-    font-size: 14px;
-  }
-  
-  .login-options label {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    color: #64748b;
-  }
-  
-  .login-options a {
-    text-decoration: none;
-    color: #8b5cf6;
-    font-weight: 600;
-  }
-  
-  .login-form button {
-    width: 100%;
-    padding: 16px;
-    border: none;
-    border-radius: 12px;
-    background: #ff5c6c;
-    color: white;
-    font-size: 18px;
-    font-weight: 600;
-    cursor: pointer;
-    transition: all 0.3s ease;
-  }
-  
-  .login-form button:hover {
-    transform: translateY(-3px);
-    box-shadow: 0 12px 24px rgba(255, 92, 108, 0.35);
-  }
+/* ========================================================================= */
+/* 1. HILL CLIMB S1000 RIDER STAGE & DYNAMIC MOVEMENT */
+/* ========================================================================= */
+.hill-climb-stage {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  z-index: 1;
+}
 
-  .features {
-    margin-top: 40px;
-    width: 80%;
-  }
-  
-  .feature-item {
-    background: rgba(255,255,255,0.15);
-    backdrop-filter: blur(10px);
-    padding: 14px 18px;
-    border-radius: 12px;
-    margin-bottom: 12px;
-    color: white;
-    font-size: 15px;
-    border: 1px solid rgba(255,255,255,0.2);
-    transition: 0.3s;
-  }
-  
-  .feature-item:hover {
-    transform: translateX(5px);
-    background: rgba(255,255,255,0.22);
-  }
+.s1000-vehicle-rig {
+  position: absolute;
+  inset: -10px;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: hillClimbS1000Physics 2.2s infinite cubic-bezier(0.36, 0.07, 0.19, 0.97);
+  transform-origin: 50% 55%;
+}
 
-  .error-message {
-    background: #fee2e2;
-    color: #dc2626;
-    padding: 10px 14px;
-    border-radius: 8px;
-    font-size: 14px;
-    margin-bottom: 10px;
-    text-align: center;
+.s1000-chassis-image {
+  position: absolute;
+  inset: 0;
+  background-size: cover;
+  background-position: center center;
+  background-repeat: no-repeat;
+  animation: s1000EngineVibrate 0.08s infinite alternate ease-in-out;
+}
+
+/* Hill Climb Elastic Head Bobbing & Suspension Physics */
+@keyframes hillClimbS1000Physics {
+  0% {
+    transform: rotate(0deg) translate(0, 0) scale(1.02);
   }
+  20% {
+    /* Acceleration surge: Head & body inertia snap backward, front suspension lifts */
+    transform: rotate(2deg) translate(-10px, -4px) scale(1.028);
+  }
+  45% {
+    /* Road bump / braking rebound: Head whips forward, front fork compresses */
+    transform: rotate(-1.8deg) translate(8px, 6px) scale(1.032);
+  }
+  68% {
+    /* Secondary spring rebound backward */
+    transform: rotate(1deg) translate(-5px, -2px) scale(1.024);
+  }
+  85% {
+    /* Minor forward damping settle */
+    transform: rotate(-0.5deg) translate(3px, 3px) scale(1.02);
+  }
+  100% {
+    transform: rotate(0deg) translate(0, 0) scale(1.02);
+  }
+}
+
+/* Engine High-RPM vibration */
+@keyframes s1000EngineVibrate {
+  0% {
+    transform: translate(0, 0);
+  }
+  100% {
+    transform: translate(-0.4px, 0.4px);
+  }
+}
+
+/* Sunset Solar Flare */
+.sunset-solar-flare {
+  position: absolute;
+  top: 38%;
+  left: 34%;
+  width: 260px;
+  height: 260px;
+  background: radial-gradient(circle, rgba(255, 255, 255, 0.85) 0%, rgba(251, 191, 36, 0.5) 35%, rgba(245, 158, 11, 0) 70%);
+  border-radius: 50%;
+  filter: blur(22px);
+  pointer-events: none;
+  animation: solarPulse 3.5s infinite ease-in-out;
+}
+
+@keyframes solarPulse {
+  0%, 100% {
+    opacity: 0.65;
+    transform: scale(0.95);
+  }
+  50% {
+    opacity: 0.95;
+    transform: scale(1.15);
+  }
+}
+
+/* Dual Headlight LED Flare */
+.s1000-headlight-flare {
+  position: absolute;
+  top: 51%;
+  left: 63%;
+  width: 200px;
+  height: 200px;
+  background: radial-gradient(circle, rgba(255, 255, 255, 0.9) 0%, rgba(56, 189, 248, 0.5) 30%, rgba(0, 0, 0, 0) 70%);
+  border-radius: 50%;
+  filter: blur(14px);
+  pointer-events: none;
+  animation: headlightGlow 2s infinite ease-in-out;
+}
+
+@keyframes headlightGlow {
+  0%, 100% {
+    opacity: 0.7;
+    transform: scale(0.95);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.1);
+  }
+}
+
+/* Sunset Speed Stream */
+.sunset-speed-stream {
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(
+    -18deg,
+    transparent,
+    transparent 55px,
+    rgba(254, 215, 170, 0.05) 55px,
+    rgba(254, 215, 170, 0.05) 57px
+  );
+  pointer-events: none;
+  animation: speedStreamSunset 0.35s linear infinite;
+}
+
+@keyframes speedStreamSunset {
+  0% {
+    background-position: 0 0;
+  }
+  100% {
+    background-position: -240px 80px;
+  }
+}
+
+/* THROTTLE BOOST INTERACTION */
+.throttle-boost .s1000-vehicle-rig {
+  animation: hillClimbS1000Physics 1.1s infinite cubic-bezier(0.36, 0.07, 0.19, 0.97);
+  filter: brightness(1.1);
+}
+
+.throttle-boost .sunset-solar-flare {
+  transform: scale(1.35);
+  opacity: 1;
+}
+
+/* 2. Dust & Gravel Canvas */
+.dust-particle-canvas {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  pointer-events: none;
+}
+
+/* 3. Warm Sunset Light Vignette */
+.sunset-light-vignette {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle at 50% 50%, rgba(255, 255, 255, 0) 0%, rgba(254, 243, 199, 0.05) 60%, rgba(234, 88, 12, 0.25) 100%),
+              linear-gradient(to right, rgba(255, 255, 255, 0.15) 0%, rgba(255, 255, 255, 0) 40%, rgba(254, 243, 199, 0.2) 100%);
+  z-index: 4;
+  pointer-events: none;
+}
+
+/* ========================================================================= */
+/* 2. TOP FLOATING HEADER */
+/* ========================================================================= */
+.login-top-bar {
+  position: relative;
+  z-index: 10;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 24px 40px;
+}
+
+.cinema-brand-tag {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(255, 255, 255, 0.9);
+  border: 1px solid rgba(245, 158, 11, 0.4);
+  padding: 8px 18px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  color: #92400e;
+  box-shadow: 0 4px 14px rgba(245, 158, 11, 0.15);
+  backdrop-filter: blur(12px);
+}
+
+.text-bolt {
+  color: #d97706;
+}
+
+/* ========================================================================= */
+/* 3. CLEAN STAGE CONTENT & LOGIN CARD */
+/* ========================================================================= */
+.login-stage-container.clean-layout {
+  position: relative;
+  z-index: 10;
+  max-width: 1440px;
+  width: 100%;
+  margin: 0 auto;
+  padding: 10px 40px 36px;
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  flex: 1;
+}
+
+.stage-spacer {
+  flex: 1;
+}
+
+/* ========================================================================= */
+/* 4. CRYSTAL FROSTED GLASSMORPHIC LOGIN PORTAL */
+/* ========================================================================= */
+.glass-login-box.light-glass-box {
+  background: rgba(255, 255, 255, 0.88);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border: 1px solid rgba(255, 255, 255, 0.95);
+  border-radius: 24px;
+  padding: 30px;
+  box-shadow: 0 20px 50px rgba(15, 23, 42, 0.12), 0 0 30px rgba(245, 158, 11, 0.15);
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  transition: transform 0.25s ease, box-shadow 0.25s ease;
+  width: 100%;
+  max-width: 380px;
+}
+
+.glass-login-box.light-glass-box:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 25px 60px rgba(15, 23, 42, 0.16), 0 0 40px rgba(245, 158, 11, 0.25);
+}
+
+.login-card-header {
+  border-bottom: 1px solid #f1f5f9;
+  padding-bottom: 14px;
+}
+
+.login-card-logo {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.card-logo-img {
+  width: 40px;
+  height: 40px;
+  object-fit: contain;
+  filter: drop-shadow(0 2px 6px rgba(217, 119, 6, 0.3));
+}
+
+.login-title.light-title {
+  margin: 0;
+  font-size: 21px;
+  font-weight: 800;
+  color: #0f172a;
+  letter-spacing: -0.02em;
+}
+
+.login-subtitle.light-sub {
+  font-size: 11px;
+  color: #64748b;
+  font-weight: 600;
+}
+
+/* Error Alert */
+.login-alert-error {
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  color: #dc2626;
+  padding: 8px 12px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  text-align: center;
+}
+
+/* Fields */
+.login-fields-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.field-group {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.field-label.light-label {
+  font-size: 11px;
+  font-weight: 700;
+  color: #334155;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.input-icon-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.field-icon.light-icon {
+  position: absolute;
+  left: 12px;
+  color: #64748b;
+  pointer-events: none;
+}
+
+.login-input.light-input {
+  width: 100%;
+  padding: 12px 40px 12px 38px;
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  border-radius: 10px;
+  font-size: 13px;
+  color: #0f172a;
+  outline: none;
+  box-sizing: border-box;
+  transition: all 0.2s ease;
+}
+
+.login-input.light-input:focus {
+  border-color: #d97706;
+  box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.2);
+}
+
+.btn-eye-toggle.light-eye {
+  position: absolute;
+  right: 10px;
+  background: transparent;
+  border: none;
+  color: #64748b;
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.btn-eye-toggle.light-eye:hover {
+  color: #0f172a;
+}
+
+.login-options-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 11px;
+}
+
+.remember-label.light-remember {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: #475569;
+  cursor: pointer;
+  user-select: none;
+  font-weight: 500;
+}
+
+.forgot-link.light-forgot {
+  color: #b45309;
+  text-decoration: none;
+  font-weight: 700;
+}
+
+.forgot-link.light-forgot:hover {
+  text-decoration: underline;
+}
+
+/* Submit Button */
+.btn-login-ignite.light-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  background: linear-gradient(135deg, #d97706 0%, #b45309 60%, #92400e 100%);
+  color: #ffffff;
+  border: none;
+  padding: 13px;
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+  box-shadow: 0 6px 18px rgba(217, 119, 6, 0.35);
+  transition: all 0.25s ease;
+}
+
+.btn-login-ignite.light-btn:hover:not(:disabled) {
+  background: linear-gradient(135deg, #b45309 0%, #92400e 60%, #78350f 100%);
+  transform: translateY(-2px);
+  box-shadow: 0 10px 24px rgba(217, 119, 6, 0.5);
+}
+
+.btn-login-ignite.light-btn:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+/* Card Footer */
+.login-card-footer {
+  border-top: 1px solid #f1f5f9;
+  padding-top: 12px;
+  display: flex;
+  justify-content: center;
+}
+
+.system-status-indicator.light-status {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: #64748b;
+  font-weight: 600;
+}
+
+.status-blip {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #10b981;
+  box-shadow: 0 0 6px #10b981;
+  animation: blipPulse 1.8s infinite;
+}
+
+@keyframes blipPulse {
+  0%, 100% { opacity: 0.6; transform: scale(0.9); }
+  50% { opacity: 1; transform: scale(1.2); }
+}

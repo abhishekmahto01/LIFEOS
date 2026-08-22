@@ -30,6 +30,7 @@ import {
   Sliders,
 } from "lucide-react";
 import { disciplineService } from "../services/disciplineService";
+import riderBg from "../assets/images/cinematic-rider.jpg";
 import "./DisciplineDashboard.css";
 
 const MONTH_NAMES = [
@@ -742,6 +743,16 @@ function DisciplineDashboard() {
           </div>
 
           <p className="bmw-motto">“RIDE TOWARDS YOUR GOAL”</p>
+
+          {/* Personalized Rider Character Preview */}
+          <div
+            className="bmw-rider-cinematic-banner"
+            style={{ backgroundImage: `url(${riderBg})` }}
+          >
+            <div className="rider-banner-overlay">
+              <span className="rider-banner-tag">ME — RIDING TOWARD MY GOALS</span>
+            </div>
+          </div>
 
           {/* Tachometer / Futuristic Gauge visual */}
           <div className="bmw-tachometer-box">

@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate, Outlet } from "react-router-dom";
+import ThemeToggle from "./ThemeToggle";
 
 function MainLayout() {
   const navigate = useNavigate();
@@ -66,7 +67,9 @@ function MainLayout() {
         minHeight: "100vh",
         display: "flex",
         flexDirection: "column",
-        backgroundColor: "#f4f6f9",
+        backgroundColor: "var(--bg-app, #090d16)",
+        color: "var(--text-primary, #f8fafc)",
+        transition: "background-color 0.25s ease, color 0.25s ease",
       }}
     >
       {/* Header */}
@@ -75,13 +78,16 @@ function MainLayout() {
           display: "flex",
           justifyContent: "space-between",
           alignItems: "center",
-          padding: "12px 20px",
-          background: "#ffffff",
-          borderBottom: "1px solid #e9ecef",
-          boxShadow: "0 1px 4px rgba(0,0,0,0.08)",
+          padding: "12px 24px",
+          background: "var(--header-bg, #0b1120)",
+          borderBottom: "1px solid var(--header-border, #1e293b)",
+          boxShadow: "var(--shadow-card, 0 2px 10px rgba(0,0,0,0.2))",
           position: "sticky",
           top: 0,
           zIndex: 100,
+          transition: "background-color 0.25s ease, border-color 0.25s ease",
+          flexWrap: "wrap",
+          gap: "12px",
         }}
       >
         {/* Logo */}
@@ -89,15 +95,19 @@ function MainLayout() {
           onClick={() => navigate("/dashboard")}
           style={{
             cursor: "pointer",
-            fontWeight: "700",
+            fontWeight: "800",
             fontSize: "20px",
-            color: "#0d6efd",
-            border: "2px solid #0d6efd",
+            color: "var(--accent-blue, #3b82f6)",
+            border: "2px solid var(--accent-blue, #3b82f6)",
             borderRadius: "10px",
-            padding: "8px 18px",
+            padding: "6px 16px",
+            letterSpacing: "-0.02em",
+            display: "flex",
+            alignItems: "center",
+            gap: "6px",
           }}
         >
-          Life OS
+          <span>Life OS</span>
         </div>
 
         {/* Right Section */}
@@ -105,16 +115,21 @@ function MainLayout() {
           style={{
             display: "flex",
             alignItems: "center",
-            gap: "15px",
+            gap: "14px",
+            flexWrap: "wrap",
           }}
         >
+          {/* Global Theme Toggle */}
+          <ThemeToggle />
+
           {/* Time */}
           <div
             style={{
-              fontSize: "17px",
+              fontSize: "15px",
               fontWeight: "600",
-              color: "#495057",
-              minWidth: "110px",
+              color: "var(--text-secondary, #94a3b8)",
+              minWidth: "90px",
+              textAlign: "center",
             }}
           >
             {currentTime}
@@ -126,24 +141,24 @@ function MainLayout() {
               display: "flex",
               alignItems: "center",
               gap: "10px",
-              background: "#f8f9fa",
-              border: "1px solid #dee2e6",
+              background: "var(--bg-surface-elevated, #1e293b)",
+              border: "1px solid var(--border-color, #334155)",
               borderRadius: "25px",
-              padding: "6px 12px",
+              padding: "4px 12px 4px 6px",
             }}
           >
             <div
               style={{
-                width: "36px",
-                height: "36px",
+                width: "32px",
+                height: "32px",
                 borderRadius: "50%",
-                background: "#0d6efd",
+                background: "var(--accent-blue, #3b82f6)",
                 color: "#fff",
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
                 fontWeight: "bold",
-                fontSize: "15px",
+                fontSize: "14px",
               }}
             >
               {(user?.username || "User").charAt(0).toUpperCase()}
@@ -152,9 +167,10 @@ function MainLayout() {
             <div>
               <div
                 style={{
-                  fontWeight: "600",
-                  fontSize: "14px",
-                  color: "#212529",
+                  fontWeight: "700",
+                  fontSize: "13px",
+                  color: "var(--text-primary, #f8fafc)",
+                  lineHeight: "1.2",
                 }}
               >
                 {user?.username || "User"}
@@ -162,11 +178,11 @@ function MainLayout() {
 
               <div
                 style={{
-                  fontSize: "12px",
-                  color: "#6c757d",
+                  fontSize: "11px",
+                  color: "var(--text-muted, #64748b)",
                 }}
               >
-                Logged In
+                Active
               </div>
             </div>
           </div>
@@ -175,31 +191,36 @@ function MainLayout() {
           <button
             onClick={() => setIsModalOpen(true)}
             style={{
-              padding: "10px 16px",
-              border: "1px solid #ced4da",
-              borderRadius: "6px",
-              background: "#ffffff",
+              padding: "8px 14px",
+              border: "1px solid var(--border-input, #334155)",
+              borderRadius: "8px",
+              background: "var(--bg-surface-elevated, #1e293b)",
+              color: "var(--text-primary, #f8fafc)",
               cursor: "pointer",
-              fontWeight: "500",
+              fontWeight: "600",
+              fontSize: "13px",
+              transition: "all 0.2s ease",
             }}
           >
-            Change Password
+            Password
           </button>
 
           {/* Logout */}
           <button
             onClick={handleLogout}
             style={{
-              padding: "10px 16px",
-              background: "#dc3545",
+              padding: "8px 14px",
+              background: "#dc2626",
               color: "#ffffff",
               border: "none",
-              borderRadius: "6px",
+              borderRadius: "8px",
               cursor: "pointer",
-              fontWeight: "600",
+              fontWeight: "700",
+              fontSize: "13px",
+              transition: "opacity 0.2s ease",
             }}
           >
-            ⏻ Logout
+            Logout
           </button>
         </div>
       </header>
@@ -209,6 +230,7 @@ function MainLayout() {
         style={{
           flex: 1,
           padding: "24px",
+          maxWidth: "100%",
         }}
       >
         <Outlet />
@@ -220,33 +242,40 @@ function MainLayout() {
           style={{
             position: "fixed",
             inset: 0,
-            backgroundColor: "rgba(0,0,0,0.5)",
+            backgroundColor: "rgba(0, 0, 0, 0.65)",
+            backdropFilter: "blur(4px)",
             display: "flex",
             justifyContent: "center",
             alignItems: "center",
             zIndex: 9999,
+            padding: "20px",
           }}
         >
           <div
             style={{
-              background: "#ffffff",
-              padding: "24px",
-              borderRadius: "10px",
-              width: "400px",
-              boxShadow: "0 5px 20px rgba(0,0,0,0.2)",
+              background: "var(--bg-surface, #0f172a)",
+              color: "var(--text-primary, #f8fafc)",
+              padding: "26px",
+              borderRadius: "16px",
+              width: "100%",
+              maxWidth: "420px",
+              boxShadow: "var(--shadow-popover, 0 10px 40px rgba(0,0,0,0.5))",
+              border: "1px solid var(--border-card, #334155)",
             }}
           >
-            <h3 style={{ marginTop: 0, marginBottom: "20px" }}>
+            <h3 style={{ marginTop: 0, marginBottom: "20px", fontSize: "18px", fontWeight: "800" }}>
               Change Password
             </h3>
 
             <form onSubmit={handleChangePasswordSubmit}>
-              <div style={{ marginBottom: "12px" }}>
+              <div style={{ marginBottom: "14px" }}>
                 <label
                   style={{
                     display: "block",
-                    marginBottom: "5px",
+                    marginBottom: "6px",
                     fontWeight: "600",
+                    fontSize: "13px",
+                    color: "var(--text-secondary, #cbd5e1)",
                   }}
                 >
                   Current Password
@@ -264,19 +293,26 @@ function MainLayout() {
                   }
                   style={{
                     width: "100%",
-                    padding: "10px",
-                    border: "1px solid #ced4da",
-                    borderRadius: "6px",
+                    padding: "10px 12px",
+                    border: "1px solid var(--border-input, #334155)",
+                    borderRadius: "8px",
+                    background: "var(--bg-input, #0b1120)",
+                    color: "var(--text-primary, #f8fafc)",
+                    outline: "none",
+                    fontSize: "14px",
+                    boxSizing: "border-box",
                   }}
                 />
               </div>
 
-              <div style={{ marginBottom: "12px" }}>
+              <div style={{ marginBottom: "14px" }}>
                 <label
                   style={{
                     display: "block",
-                    marginBottom: "5px",
+                    marginBottom: "6px",
                     fontWeight: "600",
+                    fontSize: "13px",
+                    color: "var(--text-secondary, #cbd5e1)",
                   }}
                 >
                   New Password
@@ -294,9 +330,14 @@ function MainLayout() {
                   }
                   style={{
                     width: "100%",
-                    padding: "10px",
-                    border: "1px solid #ced4da",
-                    borderRadius: "6px",
+                    padding: "10px 12px",
+                    border: "1px solid var(--border-input, #334155)",
+                    borderRadius: "8px",
+                    background: "var(--bg-input, #0b1120)",
+                    color: "var(--text-primary, #f8fafc)",
+                    outline: "none",
+                    fontSize: "14px",
+                    boxSizing: "border-box",
                   }}
                 />
               </div>
@@ -305,8 +346,10 @@ function MainLayout() {
                 <label
                   style={{
                     display: "block",
-                    marginBottom: "5px",
+                    marginBottom: "6px",
                     fontWeight: "600",
+                    fontSize: "13px",
+                    color: "var(--text-secondary, #cbd5e1)",
                   }}
                 >
                   Confirm Password
@@ -324,9 +367,14 @@ function MainLayout() {
                   }
                   style={{
                     width: "100%",
-                    padding: "10px",
-                    border: "1px solid #ced4da",
-                    borderRadius: "6px",
+                    padding: "10px 12px",
+                    border: "1px solid var(--border-input, #334155)",
+                    borderRadius: "8px",
+                    background: "var(--bg-input, #0b1120)",
+                    color: "var(--text-primary, #f8fafc)",
+                    outline: "none",
+                    fontSize: "14px",
+                    boxSizing: "border-box",
                   }}
                 />
               </div>
@@ -342,11 +390,14 @@ function MainLayout() {
                   type="button"
                   onClick={() => setIsModalOpen(false)}
                   style={{
-                    padding: "10px 15px",
-                    border: "1px solid #ced4da",
-                    borderRadius: "6px",
-                    background: "#fff",
+                    padding: "9px 16px",
+                    border: "1px solid var(--border-input, #334155)",
+                    borderRadius: "8px",
+                    background: "transparent",
+                    color: "var(--text-secondary, #94a3b8)",
                     cursor: "pointer",
+                    fontWeight: "600",
+                    fontSize: "13px",
                   }}
                 >
                   Cancel
@@ -355,12 +406,14 @@ function MainLayout() {
                 <button
                   type="submit"
                   style={{
-                    padding: "10px 15px",
-                    background: "#0d6efd",
+                    padding: "9px 18px",
+                    background: "var(--accent-blue, #2563eb)",
                     color: "#fff",
                     border: "none",
-                    borderRadius: "6px",
+                    borderRadius: "8px",
                     cursor: "pointer",
+                    fontWeight: "700",
+                    fontSize: "13px",
                   }}
                 >
                   Update
