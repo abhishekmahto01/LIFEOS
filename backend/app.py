@@ -1,16 +1,23 @@
 from flask import Flask, request, jsonify
 from flask_cors import CORS
-from database.db import get_connection
+from database.db import get_connection, init_db
 
 from routes.user_routes import user_blueprint
 from routes.dashboard_routes import dashboard_bp
+from routes.job_routes import job_blueprint
+from routes.discipline_routes import discipline_blueprint
 
 app = Flask(__name__)
 CORS(app)
 
+# Ensure database tables/columns are verified on startup
+init_db()
+
 # Blueprints
 app.register_blueprint(user_blueprint)
 app.register_blueprint(dashboard_bp)
+app.register_blueprint(job_blueprint)
+app.register_blueprint(discipline_blueprint)
 
 
 @app.route('/api/login', methods=['POST'])
