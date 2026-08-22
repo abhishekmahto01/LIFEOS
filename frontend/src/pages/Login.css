@@ -1,3 +1,6 @@
+/* ========================================================================= */
+/* BASE ROOT CONTAINER & THEME VARIABLES */
+/* ========================================================================= */
 .login-cinema-root {
   min-height: 100vh;
   position: relative;
@@ -6,9 +9,317 @@
   flex-direction: column;
   justify-content: space-between;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+  user-select: none;
+  transition: background 0.3s ease, color 0.3s ease;
+}
+
+/* ========================================================================= */
+/* 🚀 CINEMATIC BIKE LAUNCH & WARP TRANSITION (On Login Success) */
+/* ========================================================================= */
+.fade-out-ui {
+  opacity: 0 !important;
+  transform: translateY(30px) scale(0.96) !important;
+  transition: all 0.45s cubic-bezier(0.4, 0, 0.2, 1) !important;
+  pointer-events: none !important;
+}
+
+.login-top-bar.fade-out-ui {
+  transform: translateY(-30px) scale(0.96) !important;
+}
+
+/* S1000 Rocket Acceleration Zoom */
+.s1000-rocket-launch {
+  animation: s1000RocketZoom 1.1s cubic-bezier(0.55, 0.055, 0.675, 0.19) forwards !important;
+}
+
+@keyframes s1000RocketZoom {
+  0% {
+    transform: rotate(0deg) translate(0, 0) scale(1.02);
+  }
+  18% {
+    /* Power wheelie / front fork lift on heavy throttle */
+    transform: rotate(3.8deg) translate(-30px, -15px) scale(1.06);
+  }
+  40% {
+    /* Leveling down into full aerodynamic tuck */
+    transform: rotate(-1.5deg) translate(20px, 10px) scale(1.1);
+  }
+  100% {
+    /* Rockets forward across the screen with speed blur */
+    transform: rotate(0.5deg) translate(-130vw, 40px) scale(1.38);
+    filter: blur(3px) brightness(1.3);
+  }
+}
+
+/* Hyper Headlight Flare during launch */
+.headlight-hyper-beam {
+  transform: scale(2.8) !important;
+  opacity: 1 !important;
+  filter: blur(8px) brightness(1.8) !important;
+  transition: all 0.5s ease-in !important;
+}
+
+/* Warp Transition Flash Overlay */
+.warp-transition-flash {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle at 50% 50%, rgba(255, 255, 255, 0.95) 0%, rgba(254, 215, 170, 0.8) 50%, rgba(234, 88, 12, 0.9) 100%);
+  z-index: 20;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+[data-theme="dark"] .warp-transition-flash {
+  background: radial-gradient(circle at 50% 50%, rgba(56, 189, 248, 0.9) 0%, rgba(37, 99, 235, 0.8) 50%, rgba(9, 13, 22, 0.95) 100%);
+}
+
+.warp-transition-flash.flash-active {
+  opacity: 1;
+  transition-delay: 0.65s;
+}
+
+.warp-hud-tag {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: rgba(15, 23, 42, 0.85);
+  border: 1px solid rgba(56, 189, 248, 0.5);
+  color: #38bdf8;
+  padding: 12px 24px;
+  border-radius: 30px;
+  font-size: 14px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  box-shadow: 0 0 30px rgba(56, 189, 248, 0.4);
+  animation: hudPulse 0.6s infinite alternate;
+}
+
+@keyframes hudPulse {
+  0% { transform: scale(0.96); opacity: 0.85; }
+  100% { transform: scale(1.04); opacity: 1; }
+}
+
+.arrow-launch-spin {
+  animation: arrowFly 0.4s linear infinite;
+}
+
+@keyframes arrowFly {
+  0% { transform: translateX(0); }
+  50% { transform: translateX(6px); }
+  100% { transform: translateX(0); }
+}
+
+/* ========================================================================= */
+/* 🌙 DARK THEME STYLES ([data-theme="dark"]) */
+/* ========================================================================= */
+[data-theme="dark"] .login-cinema-root,
+:root:not([data-theme="light"]) .login-cinema-root {
+  color: #ffffff;
+  background: #090d16;
+}
+
+[data-theme="dark"] .cinema-stage-vignette,
+:root:not([data-theme="light"]) .cinema-stage-vignette {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle at 50% 50%, rgba(9, 13, 22, 0.2) 0%, rgba(9, 13, 22, 0.6) 70%, rgba(6, 9, 15, 0.85) 100%),
+              linear-gradient(to right, rgba(9, 13, 22, 0.5) 0%, rgba(9, 13, 22, 0.1) 40%, rgba(9, 13, 22, 0.6) 100%);
+  z-index: 4;
+  pointer-events: none;
+}
+
+[data-theme="dark"] .cinema-brand-tag,
+:root:not([data-theme="light"]) .cinema-brand-tag {
+  background: rgba(15, 23, 42, 0.85);
+  border: 1px solid rgba(56, 189, 248, 0.35);
+  color: #38bdf8;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.4);
+}
+
+[data-theme="dark"] .glass-login-box,
+:root:not([data-theme="light"]) .glass-login-box {
+  background: rgba(11, 17, 32, 0.82);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  box-shadow: 0 25px 60px rgba(0, 0, 0, 0.75), 0 0 30px rgba(56, 189, 248, 0.15);
+}
+
+[data-theme="dark"] .glass-login-box:hover,
+:root:not([data-theme="light"]) .glass-login-box:hover {
+  border-color: rgba(56, 189, 248, 0.4);
+  box-shadow: 0 25px 60px rgba(0, 0, 0, 0.85), 0 0 40px rgba(56, 189, 248, 0.25);
+}
+
+[data-theme="dark"] .login-title,
+:root:not([data-theme="light"]) .login-title {
+  color: #ffffff;
+}
+
+[data-theme="dark"] .login-subtitle,
+:root:not([data-theme="light"]) .login-subtitle {
+  color: #94a3b8;
+}
+
+[data-theme="dark"] .field-label,
+:root:not([data-theme="light"]) .field-label {
+  color: #cbd5e1;
+}
+
+[data-theme="dark"] .login-input,
+:root:not([data-theme="light"]) .login-input {
+  background: rgba(15, 23, 42, 0.88);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: #ffffff;
+}
+
+[data-theme="dark"] .login-input:focus,
+:root:not([data-theme="light"]) .login-input:focus {
+  background: rgba(15, 23, 42, 0.98);
+  border-color: #38bdf8;
+  box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.25);
+}
+
+[data-theme="dark"] .field-icon,
+:root:not([data-theme="light"]) .field-icon,
+[data-theme="dark"] .btn-eye-toggle,
+:root:not([data-theme="light"]) .btn-eye-toggle {
+  color: #94a3b8;
+}
+
+[data-theme="dark"] .btn-eye-toggle:hover,
+:root:not([data-theme="light"]) .btn-eye-toggle:hover {
+  color: #ffffff;
+}
+
+[data-theme="dark"] .remember-label,
+:root:not([data-theme="light"]) .remember-label {
+  color: #94a3b8;
+}
+
+[data-theme="dark"] .forgot-link,
+:root:not([data-theme="light"]) .forgot-link {
+  color: #38bdf8;
+}
+
+[data-theme="dark"] .btn-login-ignite,
+:root:not([data-theme="light"]) .btn-login-ignite {
+  background: linear-gradient(135deg, #0284c7 0%, #2563eb 50%, #4f46e5 100%);
+  box-shadow: 0 6px 20px rgba(37, 99, 235, 0.4);
+}
+
+[data-theme="dark"] .btn-login-ignite:hover:not(:disabled),
+:root:not([data-theme="light"]) .btn-login-ignite:hover:not(:disabled) {
+  background: linear-gradient(135deg, #0369a1 0%, #1d4ed8 50%, #4338ca 100%);
+  box-shadow: 0 10px 28px rgba(37, 99, 235, 0.6);
+}
+
+[data-theme="dark"] .login-card-header,
+[data-theme="dark"] .login-card-footer,
+:root:not([data-theme="light"]) .login-card-header,
+:root:not([data-theme="light"]) .login-card-footer {
+  border-color: rgba(255, 255, 255, 0.08);
+}
+
+[data-theme="dark"] .system-status-indicator,
+:root:not([data-theme="light"]) .system-status-indicator {
+  color: #94a3b8;
+}
+
+/* ========================================================================= */
+/* ☀️ LIGHT THEME STYLES ([data-theme="light"]) */
+/* ========================================================================= */
+[data-theme="light"] .login-cinema-root {
   color: #0f172a;
   background: #ea580c;
-  user-select: none;
+}
+
+[data-theme="light"] .cinema-stage-vignette {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle at 50% 50%, rgba(255, 255, 255, 0) 0%, rgba(254, 243, 199, 0.05) 60%, rgba(234, 88, 12, 0.25) 100%),
+              linear-gradient(to right, rgba(255, 255, 255, 0.15) 0%, rgba(255, 255, 255, 0) 40%, rgba(254, 243, 199, 0.2) 100%);
+  z-index: 4;
+  pointer-events: none;
+}
+
+[data-theme="light"] .cinema-brand-tag {
+  background: rgba(255, 255, 255, 0.92);
+  border: 1px solid rgba(245, 158, 11, 0.45);
+  color: #92400e;
+  box-shadow: 0 4px 14px rgba(245, 158, 11, 0.15);
+}
+
+[data-theme="light"] .glass-login-box {
+  background: rgba(255, 255, 255, 0.9);
+  border: 1px solid rgba(255, 255, 255, 0.98);
+  box-shadow: 0 20px 50px rgba(15, 23, 42, 0.12), 0 0 30px rgba(245, 158, 11, 0.15);
+}
+
+[data-theme="light"] .glass-login-box:hover {
+  border-color: rgba(245, 158, 11, 0.4);
+  box-shadow: 0 25px 60px rgba(15, 23, 42, 0.16), 0 0 40px rgba(245, 158, 11, 0.25);
+}
+
+[data-theme="light"] .login-title {
+  color: #0f172a;
+}
+
+[data-theme="light"] .login-subtitle {
+  color: #64748b;
+}
+
+[data-theme="light"] .field-label {
+  color: #334155;
+}
+
+[data-theme="light"] .login-input {
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  color: #0f172a;
+}
+
+[data-theme="light"] .login-input:focus {
+  border-color: #d97706;
+  box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.2);
+}
+
+[data-theme="light"] .field-icon,
+[data-theme="light"] .btn-eye-toggle {
+  color: #64748b;
+}
+
+[data-theme="light"] .btn-eye-toggle:hover {
+  color: #0f172a;
+}
+
+[data-theme="light"] .remember-label {
+  color: #475569;
+}
+
+[data-theme="light"] .forgot-link {
+  color: #b45309;
+}
+
+[data-theme="light"] .btn-login-ignite {
+  background: linear-gradient(135deg, #d97706 0%, #b45309 60%, #92400e 100%);
+  box-shadow: 0 6px 18px rgba(217, 119, 6, 0.35);
+}
+
+[data-theme="light"] .btn-login-ignite:hover:not(:disabled) {
+  background: linear-gradient(135deg, #b45309 0%, #92400e 60%, #78350f 100%);
+  box-shadow: 0 10px 24px rgba(217, 119, 6, 0.5);
+}
+
+[data-theme="light"] .login-card-header,
+[data-theme="light"] .login-card-footer {
+  border-color: #f1f5f9;
+}
+
+[data-theme="light"] .system-status-indicator {
+  color: #64748b;
 }
 
 /* ========================================================================= */
@@ -47,19 +358,15 @@
     transform: rotate(0deg) translate(0, 0) scale(1.02);
   }
   20% {
-    /* Acceleration surge: Head & body inertia snap backward, front suspension lifts */
     transform: rotate(2deg) translate(-10px, -4px) scale(1.028);
   }
   45% {
-    /* Road bump / braking rebound: Head whips forward, front fork compresses */
     transform: rotate(-1.8deg) translate(8px, 6px) scale(1.032);
   }
   68% {
-    /* Secondary spring rebound backward */
     transform: rotate(1deg) translate(-5px, -2px) scale(1.024);
   }
   85% {
-    /* Minor forward damping settle */
     transform: rotate(-0.5deg) translate(3px, 3px) scale(1.02);
   }
   100% {
@@ -67,14 +374,9 @@
   }
 }
 
-/* Engine High-RPM vibration */
 @keyframes s1000EngineVibrate {
-  0% {
-    transform: translate(0, 0);
-  }
-  100% {
-    transform: translate(-0.4px, 0.4px);
-  }
+  0% { transform: translate(0, 0); }
+  100% { transform: translate(-0.4px, 0.4px); }
 }
 
 /* Sunset Solar Flare */
@@ -92,14 +394,8 @@
 }
 
 @keyframes solarPulse {
-  0%, 100% {
-    opacity: 0.65;
-    transform: scale(0.95);
-  }
-  50% {
-    opacity: 0.95;
-    transform: scale(1.15);
-  }
+  0%, 100% { opacity: 0.65; transform: scale(0.95); }
+  50% { opacity: 0.95; transform: scale(1.15); }
 }
 
 /* Dual Headlight LED Flare */
@@ -117,14 +413,8 @@
 }
 
 @keyframes headlightGlow {
-  0%, 100% {
-    opacity: 0.7;
-    transform: scale(0.95);
-  }
-  50% {
-    opacity: 1;
-    transform: scale(1.1);
-  }
+  0%, 100% { opacity: 0.7; transform: scale(0.95); }
+  50% { opacity: 1; transform: scale(1.1); }
 }
 
 /* Sunset Speed Stream */
@@ -143,12 +433,8 @@
 }
 
 @keyframes speedStreamSunset {
-  0% {
-    background-position: 0 0;
-  }
-  100% {
-    background-position: -240px 80px;
-  }
+  0% { background-position: 0 0; }
+  100% { background-position: -240px 80px; }
 }
 
 /* THROTTLE BOOST INTERACTION */
@@ -162,21 +448,11 @@
   opacity: 1;
 }
 
-/* 2. Dust & Gravel Canvas */
+/* Dust & Gravel Canvas */
 .dust-particle-canvas {
   position: absolute;
   inset: 0;
   z-index: 3;
-  pointer-events: none;
-}
-
-/* 3. Warm Sunset Light Vignette */
-.sunset-light-vignette {
-  position: absolute;
-  inset: 0;
-  background: radial-gradient(circle at 50% 50%, rgba(255, 255, 255, 0) 0%, rgba(254, 243, 199, 0.05) 60%, rgba(234, 88, 12, 0.25) 100%),
-              linear-gradient(to right, rgba(255, 255, 255, 0.15) 0%, rgba(255, 255, 255, 0) 40%, rgba(254, 243, 199, 0.2) 100%);
-  z-index: 4;
   pointer-events: none;
 }
 
@@ -190,26 +466,24 @@
   justify-content: space-between;
   align-items: center;
   padding: 24px 40px;
+  transition: all 0.4s ease;
 }
 
 .cinema-brand-tag {
   display: flex;
   align-items: center;
   gap: 8px;
-  background: rgba(255, 255, 255, 0.9);
-  border: 1px solid rgba(245, 158, 11, 0.4);
   padding: 8px 18px;
   border-radius: 20px;
   font-size: 12px;
   font-weight: 800;
   letter-spacing: 0.06em;
-  color: #92400e;
-  box-shadow: 0 4px 14px rgba(245, 158, 11, 0.15);
   backdrop-filter: blur(12px);
+  transition: all 0.3s ease;
 }
 
 .text-bolt {
-  color: #d97706;
+  color: #f59e0b;
 }
 
 /* ========================================================================= */
@@ -226,6 +500,7 @@
   justify-content: flex-end;
   align-items: center;
   flex: 1;
+  transition: all 0.45s ease;
 }
 
 .stage-spacer {
@@ -233,32 +508,29 @@
 }
 
 /* ========================================================================= */
-/* 4. CRYSTAL FROSTED GLASSMORPHIC LOGIN PORTAL */
+/* 4. GLASSMORPHIC LOGIN PORTAL */
 /* ========================================================================= */
-.glass-login-box.light-glass-box {
-  background: rgba(255, 255, 255, 0.88);
+.glass-login-box {
   backdrop-filter: blur(24px);
   -webkit-backdrop-filter: blur(24px);
-  border: 1px solid rgba(255, 255, 255, 0.95);
   border-radius: 24px;
   padding: 30px;
-  box-shadow: 0 20px 50px rgba(15, 23, 42, 0.12), 0 0 30px rgba(245, 158, 11, 0.15);
   display: flex;
   flex-direction: column;
   gap: 18px;
-  transition: transform 0.25s ease, box-shadow 0.25s ease;
+  transition: transform 0.25s ease, box-shadow 0.25s ease, background 0.3s ease, border-color 0.3s ease;
   width: 100%;
   max-width: 380px;
 }
 
-.glass-login-box.light-glass-box:hover {
+.glass-login-box:hover {
   transform: translateY(-2px);
-  box-shadow: 0 25px 60px rgba(15, 23, 42, 0.16), 0 0 40px rgba(245, 158, 11, 0.25);
 }
 
 .login-card-header {
-  border-bottom: 1px solid #f1f5f9;
+  border-bottom: 1px solid transparent;
   padding-bottom: 14px;
+  transition: border-color 0.3s ease;
 }
 
 .login-card-logo {
@@ -274,18 +546,18 @@
   filter: drop-shadow(0 2px 6px rgba(217, 119, 6, 0.3));
 }
 
-.login-title.light-title {
+.login-title {
   margin: 0;
   font-size: 21px;
   font-weight: 800;
-  color: #0f172a;
   letter-spacing: -0.02em;
+  transition: color 0.3s ease;
 }
 
-.login-subtitle.light-sub {
+.login-subtitle {
   font-size: 11px;
-  color: #64748b;
   font-weight: 600;
+  transition: color 0.3s ease;
 }
 
 /* Error Alert */
@@ -313,12 +585,12 @@
   gap: 5px;
 }
 
-.field-label.light-label {
+.field-label {
   font-size: 11px;
   font-weight: 700;
-  color: #334155;
   text-transform: uppercase;
   letter-spacing: 0.03em;
+  transition: color 0.3s ease;
 }
 
 .input-icon-wrap {
@@ -327,47 +599,35 @@
   align-items: center;
 }
 
-.field-icon.light-icon {
+.field-icon {
   position: absolute;
   left: 12px;
-  color: #64748b;
   pointer-events: none;
+  transition: color 0.3s ease;
 }
 
-.login-input.light-input {
+.login-input {
   width: 100%;
   padding: 12px 40px 12px 38px;
-  background: #ffffff;
-  border: 1px solid #cbd5e1;
   border-radius: 10px;
   font-size: 13px;
-  color: #0f172a;
   outline: none;
   box-sizing: border-box;
-  transition: all 0.2s ease;
+  transition: all 0.25s ease;
 }
 
-.login-input.light-input:focus {
-  border-color: #d97706;
-  box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.2);
-}
-
-.btn-eye-toggle.light-eye {
+.btn-eye-toggle {
   position: absolute;
   right: 10px;
   background: transparent;
   border: none;
-  color: #64748b;
   cursor: pointer;
   padding: 4px;
   border-radius: 6px;
   display: flex;
   align-items: center;
   justify-content: center;
-}
-
-.btn-eye-toggle.light-eye:hover {
-  color: #0f172a;
+  transition: color 0.2s ease;
 }
 
 .login-options-row {
@@ -377,33 +637,32 @@
   font-size: 11px;
 }
 
-.remember-label.light-remember {
+.remember-label {
   display: flex;
   align-items: center;
   gap: 6px;
-  color: #475569;
   cursor: pointer;
   user-select: none;
   font-weight: 500;
+  transition: color 0.3s ease;
 }
 
-.forgot-link.light-forgot {
-  color: #b45309;
+.forgot-link {
   text-decoration: none;
   font-weight: 700;
+  transition: color 0.3s ease;
 }
 
-.forgot-link.light-forgot:hover {
+.forgot-link:hover {
   text-decoration: underline;
 }
 
 /* Submit Button */
-.btn-login-ignite.light-btn {
+.btn-login-ignite {
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 8px;
-  background: linear-gradient(135deg, #d97706 0%, #b45309 60%, #92400e 100%);
   color: #ffffff;
   border: none;
   padding: 13px;
@@ -412,36 +671,33 @@
   font-weight: 800;
   letter-spacing: 0.02em;
   cursor: pointer;
-  box-shadow: 0 6px 18px rgba(217, 119, 6, 0.35);
   transition: all 0.25s ease;
 }
 
-.btn-login-ignite.light-btn:hover:not(:disabled) {
-  background: linear-gradient(135deg, #b45309 0%, #92400e 60%, #78350f 100%);
+.btn-login-ignite:hover:not(:disabled) {
   transform: translateY(-2px);
-  box-shadow: 0 10px 24px rgba(217, 119, 6, 0.5);
 }
 
-.btn-login-ignite.light-btn:disabled {
-  opacity: 0.7;
-  cursor: not-allowed;
+.btn-login-ignite:disabled {
+  opacity: 0.85;
 }
 
 /* Card Footer */
 .login-card-footer {
-  border-top: 1px solid #f1f5f9;
+  border-top: 1px solid transparent;
   padding-top: 12px;
   display: flex;
   justify-content: center;
+  transition: border-color 0.3s ease;
 }
 
-.system-status-indicator.light-status {
+.system-status-indicator {
   display: flex;
   align-items: center;
   gap: 6px;
   font-size: 11px;
-  color: #64748b;
   font-weight: 600;
+  transition: color 0.3s ease;
 }
 
 .status-blip {

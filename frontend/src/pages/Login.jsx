@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import axios from "axios";
-import { Zap, Lock, User, Eye, EyeOff, ArrowRight } from "lucide-react";
+import { Zap, Lock, User, Eye, EyeOff, ArrowRight, Sparkles } from "lucide-react";
 import "./Login.css";
 import logo from "../assets/images/lifeos-logo.png";
 import userRiderImg from "../assets/images/user-s1000-rider.jpg";
@@ -15,6 +15,7 @@ function Login() {
   const [loading, setLoading] = useState(false);
   const [rememberMe, setRememberMe] = useState(true);
   const [isAccelerating, setIsAccelerating] = useState(false);
+  const [isLaunching, setIsLaunching] = useState(false);
 
   const canvasRef = useRef(null);
   const navigate = useNavigate();
@@ -35,7 +36,7 @@ function Login() {
     }
   }, [searchParams, navigate]);
 
-  // Golden Sunset Dust, Gravel & Speed Particle System
+  // Golden Sunset Dust, Gravel & Speed Warp Particle System
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -52,7 +53,7 @@ function Login() {
     window.addEventListener("resize", handleResize);
 
     // Dust puffs behind rear wheel
-    const dustCount = 35;
+    const dustCount = 45;
     const dustParticles = Array.from({ length: dustCount }, () => ({
       x: width * 0.32 + (Math.random() * 80 - 40),
       y: height * 0.76 + (Math.random() * 50 - 25),
@@ -65,7 +66,7 @@ function Login() {
     }));
 
     // Flying gravel pebbles
-    const pebbleCount = 16;
+    const pebbleCount = 20;
     const pebbles = Array.from({ length: pebbleCount }, () => ({
       x: width * 0.32 + (Math.random() * 40 - 20),
       y: height * 0.78 + (Math.random() * 30 - 15),
@@ -77,20 +78,22 @@ function Login() {
       color: "#78350f",
     }));
 
-    // Wind speed streaks
-    const streakCount = 20;
+    // Wind / Warp speed streaks
+    const streakCount = 40;
     const speedStreaks = Array.from({ length: streakCount }, () => ({
       x: Math.random() * width,
       y: Math.random() * height,
-      len: Math.random() * 120 + 50,
-      speed: Math.random() * 14 + 8,
-      opacity: Math.random() * 0.3 + 0.1,
-      color: "rgba(254, 215, 170, 0.6)",
-      width: Math.random() * 2 + 0.8,
+      len: Math.random() * 140 + 60,
+      speed: Math.random() * 16 + 10,
+      opacity: Math.random() * 0.35 + 0.1,
+      color: "rgba(254, 215, 170, 0.7)",
+      width: Math.random() * 2.5 + 0.8,
     }));
 
     const render = () => {
       ctx.clearRect(0, 0, width, height);
+
+      const speedMultiplier = isLaunching ? 5.5 : isAccelerating ? 1.7 : 1;
 
       // 1. Draw Dust Puffs behind Rear Wheel
       dustParticles.forEach((d) => {
@@ -100,10 +103,10 @@ function Login() {
         ctx.globalAlpha = d.opacity;
         ctx.fill();
 
-        d.x += d.vx * (isAccelerating ? 1.6 : 1);
+        d.x += d.vx * speedMultiplier;
         d.y += d.vy;
-        d.radius += d.grow;
-        d.opacity -= 0.007;
+        d.radius += d.grow * (isLaunching ? 1.8 : 1);
+        d.opacity -= isLaunching ? 0.015 : 0.007;
 
         if (d.opacity <= 0 || d.x < 0) {
           d.x = width * 0.32 + (Math.random() * 40 - 20);
@@ -122,7 +125,7 @@ function Login() {
         ctx.globalAlpha = p.opacity;
         ctx.fill();
 
-        p.x += p.vx * (isAccelerating ? 1.5 : 1);
+        p.x += p.vx * speedMultiplier;
         p.y += p.vy;
         p.vy += p.gravity;
 
@@ -134,21 +137,22 @@ function Login() {
         }
       });
 
-      // 3. Draw Sunset Wind Streaks
+      // 3. Draw Sunset Warp Speed Streaks
       speedStreaks.forEach((s) => {
         ctx.beginPath();
         ctx.strokeStyle = s.color;
-        ctx.globalAlpha = s.opacity;
-        ctx.lineWidth = s.width;
+        ctx.globalAlpha = isLaunching ? Math.min(s.opacity * 2.2, 0.95) : s.opacity;
+        ctx.lineWidth = isLaunching ? s.width * 2 : s.width;
 
+        const currentLen = isLaunching ? s.len * 3.5 : s.len;
         ctx.moveTo(s.x, s.y);
-        ctx.lineTo(s.x - s.len, s.y + s.len * 0.05);
+        ctx.lineTo(s.x - currentLen, s.y + currentLen * 0.05);
         ctx.stroke();
 
-        s.x -= s.speed * (isAccelerating ? 1.7 : 1);
+        s.x -= s.speed * speedMultiplier * 1.5;
 
-        if (s.x < -200) {
-          s.x = width + Math.random() * 150;
+        if (s.x < -currentLen) {
+          s.x = width + Math.random() * 200;
           s.y = Math.random() * height;
         }
       });
@@ -162,7 +166,7 @@ function Login() {
       window.removeEventListener("resize", handleResize);
       cancelAnimationFrame(animationFrameId);
     };
-  }, [isAccelerating]);
+  }, [isAccelerating, isLaunching]);
 
   const handleSignIn = async () => {
     setError("");
@@ -186,9 +190,16 @@ function Login() {
           JSON.stringify(res.data.user)
         );
 
-        navigate("/dashboard");
+        // 🚀 TRIGGER CINEMATIC BIKE LAUNCH SEQUENCE
+        setIsLaunching(true);
+
+        // Smooth transition to Dashboard as the bike rockets across the screen
+        setTimeout(() => {
+          navigate("/dashboard");
+        }, 1100);
       } else {
         setError(res.data.message || "Login failed");
+        setLoading(false);
       }
     } catch (err) {
       if (
@@ -200,28 +211,27 @@ function Login() {
       } else {
         setError("Server error, please try again later");
       }
-    } finally {
       setLoading(false);
     }
   };
 
   const handleKeyDown = (e) => {
-    if (e.key === "Enter") {
+    if (e.key === "Enter" && !loading && !isLaunching) {
       handleSignIn();
     }
   };
 
   return (
     <div
-      className={`login-cinema-root sunset-s1000-theme ${isAccelerating ? "throttle-boost" : ""}`}
-      onMouseDown={() => setIsAccelerating(true)}
-      onMouseUp={() => setIsAccelerating(false)}
-      onTouchStart={() => setIsAccelerating(true)}
-      onTouchEnd={() => setIsAccelerating(false)}
+      className={`login-cinema-root ${isAccelerating ? "throttle-boost" : ""} ${isLaunching ? "launch-sequence-active" : ""}`}
+      onMouseDown={() => !isLaunching && setIsAccelerating(true)}
+      onMouseUp={() => !isLaunching && setIsAccelerating(false)}
+      onTouchStart={() => !isLaunching && setIsAccelerating(true)}
+      onTouchEnd={() => !isLaunching && setIsAccelerating(false)}
     >
       {/* 1. HILL CLIMB S1000 RIDER STAGE & DYNAMIC MOVEMENT */}
       <div className="hill-climb-stage">
-        <div className="s1000-vehicle-rig">
+        <div className={`s1000-vehicle-rig ${isLaunching ? "s1000-rocket-launch" : ""}`}>
           <div
             className="s1000-chassis-image"
             style={{ backgroundImage: `url(${userRiderImg})` }}
@@ -229,7 +239,7 @@ function Login() {
             {/* Sunset solar flare pulse */}
             <div className="sunset-solar-flare"></div>
             {/* Dual LED Headlight glow */}
-            <div className="s1000-headlight-flare"></div>
+            <div className={`s1000-headlight-flare ${isLaunching ? "headlight-hyper-beam" : ""}`}></div>
             {/* Speed breeze stream */}
             <div className="sunset-speed-stream"></div>
           </div>
@@ -239,11 +249,21 @@ function Login() {
       {/* 2. DUST, GRAVEL & SPEED PARTICLE CANVAS */}
       <canvas ref={canvasRef} className="dust-particle-canvas" />
 
-      {/* 3. SUBTLE SUNSET ATMOSPHERIC VIGNETTE */}
-      <div className="sunset-light-vignette"></div>
+      {/* 3. DYNAMIC ATMOSPHERIC VIGNETTE */}
+      <div className="cinema-stage-vignette"></div>
+
+      {/* 4. WARP TRANSITION FLASH OVERLAY (Appears during launch sequence) */}
+      <div className={`warp-transition-flash ${isLaunching ? "flash-active" : ""}`}>
+        {isLaunching && (
+          <div className="warp-hud-tag">
+            <Sparkles size={20} className="warp-icon" />
+            <span>MISSION 2026 ENGAGED • ENTERING SYSTEM...</span>
+          </div>
+        )}
+      </div>
 
       {/* Top Floating Header */}
-      <div className="login-top-bar">
+      <div className={`login-top-bar ${isLaunching ? "fade-out-ui" : ""}`}>
         <div className="cinema-brand-tag">
           <Zap size={16} className="text-bolt" />
           <span>MISSION 2026 • BMW S1000 RR</span>
@@ -251,18 +271,18 @@ function Login() {
         <ThemeToggle />
       </div>
 
-      {/* 4. CLEAN MINIMAL STAGE CONTENT — NO CLUTTER, PURE HERO FOCUS */}
-      <div className="login-stage-container clean-layout">
+      {/* 5. CLEAN MINIMAL STAGE CONTENT */}
+      <div className={`login-stage-container clean-layout ${isLaunching ? "fade-out-ui" : ""}`}>
         <div className="stage-spacer"></div>
 
-        {/* Right Side: Clean Frosted Glassmorphic Login Card */}
-        <div className="glass-login-box light-glass-box">
+        {/* Right Side: Themed Glassmorphic Login Card */}
+        <div className="glass-login-box">
           <div className="login-card-header">
             <div className="login-card-logo">
               <img src={logo} alt="Life OS" className="card-logo-img" />
               <div>
-                <h2 className="login-title light-title">Life OS</h2>
-                <span className="login-subtitle light-sub">System Access Portal</span>
+                <h2 className="login-title">Life OS</h2>
+                <span className="login-subtitle">System Access Portal</span>
               </div>
             </div>
           </div>
@@ -275,39 +295,42 @@ function Login() {
 
           <div className="login-fields-stack">
             <div className="field-group">
-              <label className="field-label light-label">User ID / Username</label>
+              <label className="field-label">User ID / Username</label>
               <div className="input-icon-wrap">
-                <User size={18} className="field-icon light-icon" />
+                <User size={18} className="field-icon" />
                 <input
                   type="text"
-                  className="login-input light-input"
+                  className="login-input"
                   placeholder="Enter User ID"
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
                   onKeyDown={handleKeyDown}
+                  disabled={loading || isLaunching}
                   autoComplete="username"
                 />
               </div>
             </div>
 
             <div className="field-group">
-              <label className="field-label light-label">Access Password</label>
+              <label className="field-label">Access Password</label>
               <div className="input-icon-wrap">
-                <Lock size={18} className="field-icon light-icon" />
+                <Lock size={18} className="field-icon" />
                 <input
                   type={showPassword ? "text" : "password"}
-                  className="login-input light-input"
+                  className="login-input"
                   placeholder="Enter Password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   onKeyDown={handleKeyDown}
+                  disabled={loading || isLaunching}
                   autoComplete="current-password"
                 />
                 <button
                   type="button"
-                  className="btn-eye-toggle light-eye"
+                  className="btn-eye-toggle"
                   onClick={() => setShowPassword(!showPassword)}
                   title={showPassword ? "Hide password" : "Show password"}
+                  disabled={loading || isLaunching}
                 >
                   {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                 </button>
@@ -315,11 +338,12 @@ function Login() {
             </div>
 
             <div className="login-options-row">
-              <label className="remember-label light-remember">
+              <label className="remember-label">
                 <input
                   type="checkbox"
                   checked={rememberMe}
                   onChange={(e) => setRememberMe(e.target.checked)}
+                  disabled={loading || isLaunching}
                 />
                 <span>Remember Session</span>
               </label>
@@ -330,26 +354,26 @@ function Login() {
                   e.preventDefault();
                   alert("Contact administrator to reset password.");
                 }}
-                className="forgot-link light-forgot"
+                className="forgot-link"
               >
                 Forgot Password?
               </a>
             </div>
 
             <button
-              className="btn-login-ignite light-btn"
+              className="btn-login-ignite"
               onClick={handleSignIn}
-              disabled={loading}
+              disabled={loading || isLaunching}
             >
-              <span>{loading ? "Authenticating..." : "Launch Mission"}</span>
-              <ArrowRight size={18} />
+              <span>{isLaunching ? "Launching Mission..." : loading ? "Authenticating..." : "Launch Mission"}</span>
+              <ArrowRight size={18} className={isLaunching ? "arrow-launch-spin" : ""} />
             </button>
           </div>
 
           <div className="login-card-footer">
-            <div className="system-status-indicator light-status">
+            <div className="system-status-indicator">
               <span className="status-blip"></span>
-              <span>LifeOS Engine Online • v2.0</span>
+              <span>{isLaunching ? "S1000 RR 205HP Engaged" : "LifeOS Engine Online • v2.0"}</span>
             </div>
           </div>
         </div>
