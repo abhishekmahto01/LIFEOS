@@ -34,6 +34,25 @@ export const disciplineService = {
     return response.data;
   },
 
+  // Get spreadsheet matrix with week partitioning, routines & analytics
+  getMonthMatrix: async (year, month, userId = 1) => {
+    const response = await api.get(`/api/discipline/month-matrix/${year}/${month}`, {
+      params: { user_id: userId },
+    });
+    return response.data;
+  },
+
+  // Toggle single cell in the spreadsheet matrix
+  toggleHabitCell: async (dateStr, habitKey, completed, userId = 1) => {
+    const response = await api.post("/api/discipline/toggle-cell", {
+      date: dateStr,
+      habit_key: habitKey,
+      completed,
+      user_id: userId,
+    });
+    return response.data;
+  },
+
   // Get full 365-day year heatmap
   getYearHeatmap: async (year, userId = 1) => {
     const response = await api.get(`/api/discipline/year/${year}`, {

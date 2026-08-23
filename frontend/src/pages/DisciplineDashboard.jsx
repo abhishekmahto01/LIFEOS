@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Zap,
@@ -6,7 +6,6 @@ import {
   Trophy,
   Star,
   CheckCircle2,
-  Circle,
   Calendar,
   ChevronLeft,
   ChevronRight,
@@ -28,32 +27,34 @@ import {
   Clock,
   Gauge,
   Sliders,
+  Plus,
+  Compass,
+  Activity,
+  Layers,
+  PieChart,
 } from "lucide-react";
 import { disciplineService } from "../services/disciplineService";
+import { useTheme } from "../context/ThemeContext";
+import ThemeToggle from "../components/ThemeToggle";
 import riderBg from "../assets/images/cinematic-rider.jpg";
 import "./DisciplineDashboard.css";
-
-const MONTH_NAMES = [
-  "Jan", "Feb", "Mar", "Apr", "May", "Jun",
-  "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"
-];
 
 const FULL_MONTH_NAMES = [
   "January", "February", "March", "April", "May", "June",
   "July", "August", "September", "October", "November", "December"
 ];
 
-const WEEKDAY_NAMES = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
-
-const MOTIVATIONAL_QUOTES = [
-  "“Small actions. Every day. One goal.”",
-  "“You don't need motivation. You need consistency.”",
-  "“Future you is watching what you do today.”",
-  "“Discipline is choosing between what you want now and what you want most.”",
-  "“The bike is the reward. Discipline is the price.”",
-  "“Don't break the chain.”",
-  "“One disciplined day closer to the goal.”",
-  "“Your future self will thank today's you.”"
+const DEFAULT_ROUTINES = [
+  { key: "deep_work", label: "Deep Work", icon: "💼", category: "Productivity" },
+  { key: "gym", label: "Gym / Workout", icon: "🏋️", category: "Fitness" },
+  { key: "study", label: "Study / DS-365", icon: "🧠", category: "Learning" },
+  { key: "job", label: "Job Applications", icon: "🎯", category: "Career" },
+  { key: "reading", label: "Reading / Meditating", icon: "📖", category: "Mind" },
+  { key: "wake_early", label: "Wake Up Early", icon: "⏰", category: "Routine" },
+  { key: "budget", label: "Budget Tracking", icon: "💰", category: "Finance" },
+  { key: "cold_shower", label: "Cold Shower", icon: "🚿", category: "Health" },
+  { key: "clean_living", label: "Clean Living / No Alcohol", icon: "🚫", category: "Health" },
+  { key: "reflection", label: "Time with Self / Reflection", icon: "🧘", category: "Mind" },
 ];
 
 function DisciplineDashboard() {
@@ -62,1136 +63,679 @@ function DisciplineDashboard() {
   const userId = user.user_id || 1;
 
   const currentYear = 2026;
-  const today = new Date();
-  const currentMonthIndex = today.getFullYear() === currentYear ? today.getMonth() + 1 : 8;
+  const todayDate = new Date();
+  const currentMonthIndex = todayDate.getFullYear() === currentYear ? todayDate.getMonth() + 1 : 8;
 
-  // Selected Month State for Calendar
+  // Selected Month State
   const [selectedMonth, setSelectedMonth] = useState(currentMonthIndex);
-
-  // Data states
-  const [todayData, setTodayData] = useState(null);
-  const [monthData, setMonthData] = useState(null);
-  const [analyticsData, setAnalyticsData] = useState(null);
-  const [yearHeatmap, setYearHeatmap] = useState(null);
+  const [matrixData, setMatrixData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [activeAnalyticsTab, setActiveAnalyticsTab] = useState("overview"); // overview, habits, weekday, bmw
 
-  // Daily Detail Modal State
-  const [selectedDayObj, setSelectedDayObj] = useState(null);
-  const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
-  const [modalFormState, setModalFormState] = useState({
-    gym_completed: false,
-    job_completed: false,
-    study_completed: false,
-    project_completed: false,
-    notes: "",
-  });
-  const [modalSaving, setModalSaving] = useState(false);
+  // Hovered day tooltip for Area Chart
+  const [hoveredAreaPoint, setHoveredAreaPoint] = useState(null);
   const [toastMessage, setToastMessage] = useState(null);
-  const [showConfetti, setShowConfetti] = useState(false);
 
   const showToast = (msg) => {
     setToastMessage(msg);
-    setTimeout(() => setToastMessage(null), 3500);
+    setTimeout(() => setToastMessage(null), 3000);
   };
 
-  // Load all initial data
-  const loadDashboardData = async () => {
+  // Load Month Matrix Data
+  const loadMonthData = useCallback(async (monthNum) => {
     try {
       setLoading(true);
       setError(null);
-
-      const [todayRes, monthRes, analyticsRes, heatmapRes] = await Promise.all([
-        disciplineService.getTodaySummary(userId),
-        disciplineService.getMonthCalendar(currentYear, selectedMonth, userId),
-        disciplineService.getAnalytics(currentYear, userId),
-        disciplineService.getYearHeatmap(currentYear, userId),
-      ]);
-
-      if (todayRes.success) setTodayData(todayRes);
-      if (monthRes.success) setMonthData(monthRes);
-      if (analyticsRes.success) setAnalyticsData(analyticsRes);
-      if (heatmapRes.success) setYearHeatmap(heatmapRes);
+      const res = await disciplineService.getMonthMatrix(currentYear, monthNum, userId);
+      if (res && res.success) {
+        setMatrixData(res);
+      } else {
+        setError("Failed to load discipline data for this month.");
+      }
     } catch (err) {
-      console.error("Error loading discipline data:", err);
-      setError("Failed to connect to Discipline backend service.");
+      console.error("Error loading month matrix:", err);
+      setError("Network or server error while loading matrix.");
     } finally {
       setLoading(false);
     }
-  };
+  }, [userId, currentYear]);
 
   useEffect(() => {
-    loadDashboardData();
-  }, []);
+    loadMonthData(selectedMonth);
+  }, [selectedMonth, loadMonthData]);
 
-  // When selected month changes, load that month's calendar
-  useEffect(() => {
-    const fetchMonth = async () => {
-      try {
-        const res = await disciplineService.getMonthCalendar(currentYear, selectedMonth, userId);
-        if (res.success) {
-          setMonthData(res);
-        }
-      } catch (err) {
-        console.error("Error loading month calendar:", err);
-      }
-    };
-    fetchMonth();
-  }, [selectedMonth]);
-
-  // Quick toggle on Today's 4 activities
-  const handleToggleTodayHabit = async (habitKey) => {
-    if (!todayData || !todayData.today) return;
-
-    const currentHabitState = todayData.today[habitKey];
-    const newHabitState = !currentHabitState;
-
-    const updatedToday = {
-      ...todayData.today,
-      [habitKey]: newHabitState,
-    };
-
-    // Optimistic update
-    const completedCount = [
-      updatedToday.gym_completed,
-      updatedToday.job_completed,
-      updatedToday.study_completed,
-      updatedToday.project_completed,
-    ].filter(Boolean).length;
-    const newScore = Math.round((completedCount / 4.0) * 100);
-
-    setTodayData((prev) => ({
-      ...prev,
-      today: { ...updatedToday, daily_score: newScore },
-      today_completion: newScore,
-    }));
-
-    if (newScore === 100) {
-      setShowConfetti(true);
-      setTimeout(() => setShowConfetti(false), 3000);
-      showToast("🎉 PERFECT DAY! 100% Discipline Achieved!");
-    }
-
-    try {
-      const todayStr = todayData.today.date;
-      await disciplineService.saveDayData(todayStr, updatedToday, userId);
-
-      // Refresh analytics and month data silently
-      const [monthRes, analyticsRes, heatmapRes] = await Promise.all([
-        disciplineService.getMonthCalendar(currentYear, selectedMonth, userId),
-        disciplineService.getAnalytics(currentYear, userId),
-        disciplineService.getYearHeatmap(currentYear, userId),
-      ]);
-      if (monthRes.success) setMonthData(monthRes);
-      if (analyticsRes.success) setAnalyticsData(analyticsRes);
-      if (heatmapRes.success) setYearHeatmap(heatmapRes);
-    } catch (err) {
-      console.error("Failed to save habit toggle:", err);
-      showToast("⚠️ Failed to persist change. Reverting...");
-      loadDashboardData();
-    }
-  };
-
-  // Open modal for a specific day
-  const handleOpenDayModal = (dayObj) => {
-    setSelectedDayObj(dayObj);
-    setModalFormState({
-      gym_completed: dayObj.gym_completed || false,
-      job_completed: dayObj.job_completed || false,
-      study_completed: dayObj.study_completed || false,
-      project_completed: dayObj.project_completed || false,
-      notes: dayObj.notes || "",
-    });
-    setIsDetailModalOpen(true);
-  };
-
-  // Save changes from modal
-  const handleSaveModalDay = async (e) => {
-    e.preventDefault();
-    if (!selectedDayObj) return;
-
-    if (selectedDayObj.is_future) {
-      alert("Cannot mark future dates as completed.");
+  // Handle Checkbox Cell Toggle
+  const handleCellToggle = async (dateStr, habitKey, currentVal) => {
+    // Check if target date is in the future
+    const targetDay = daysList.find((d) => d.date === dateStr);
+    if (targetDay && targetDay.is_future) {
+      showToast("Future dates are locked and cannot be marked in advance.");
       return;
     }
 
-    try {
-      setModalSaving(true);
-      const res = await disciplineService.saveDayData(
-        selectedDayObj.date,
-        modalFormState,
-        userId
-      );
+    const newVal = !currentVal;
 
-      if (res.success) {
-        showToast(`Discipline record for ${selectedDayObj.date} updated!`);
-        setIsDetailModalOpen(false);
-        // Refresh all data
-        loadDashboardData();
-      }
+    // Optimistic UI Update in local state
+    setMatrixData((prev) => {
+      if (!prev || !prev.days) return prev;
+      const updatedDays = prev.days.map((d) => {
+        if (d.date === dateStr) {
+          const updatedHabits = { ...d.habits, [habitKey]: newVal };
+          const doneCount = Object.values(updatedHabits).filter(Boolean).length;
+          const goalCount = d.goal_count || DEFAULT_ROUTINES.length;
+          const openCount = Math.max(goalCount - doneCount, 0);
+          const scorePercent = Math.round((doneCount / goalCount) * 100);
+          return {
+            ...d,
+            habits: updatedHabits,
+            done_count: doneCount,
+            open_count: openCount,
+            score_percent: scorePercent,
+          };
+        }
+        return d;
+      });
+
+      // Recalculate weeks summary
+      const updatedWeeks = (prev.weeks_summary || []).map((w) => {
+        const wDays = updatedDays.filter((d) => d.week_num === w.week_num);
+        const wDone = wDays.reduce((acc, d) => acc + (d.done_count || 0), 0);
+        const wGoal = wDays.reduce((acc, d) => acc + (d.goal_count || 0), 0);
+        const wProg = wGoal > 0 ? Math.round((wDone / wGoal) * 100) : 0;
+        return {
+          ...w,
+          total_done: wDone,
+          total_goal: wGoal,
+          progress_percent: wProg,
+        };
+      });
+
+      return {
+        ...prev,
+        days: updatedDays,
+        weeks_summary: updatedWeeks,
+      };
+    });
+
+    try {
+      await disciplineService.toggleHabitCell(dateStr, habitKey, newVal, userId);
     } catch (err) {
-      console.error("Error saving day details:", err);
-      alert(err.response?.data?.error || "Failed to save day data.");
-    } finally {
-      setModalSaving(false);
+      console.error("Error persisting habit toggle:", err);
+      showToast("Error saving change to server. Retrying...");
+      loadMonthData(selectedMonth);
     }
   };
 
-  // Dynamic Quote selection
-  const quoteIndex = todayData?.today?.date
-    ? todayData.today.date.charCodeAt(todayData.today.date.length - 1) % MOTIVATIONAL_QUOTES.length
-    : 0;
-  const currentQuote = MOTIVATIONAL_QUOTES[quoteIndex];
+  const daysList = matrixData?.days || [];
+  const weeksSummary = matrixData?.weeks_summary || [];
+  const routinesList = matrixData?.routines_presets || DEFAULT_ROUTINES;
 
-  // Helper for heatmap cell color
-  const getHeatmapColorClass = (score, isFuture, isToday) => {
-    if (isFuture) return "cell-future";
-    if (score === 100) return "cell-perfect";
-    if (score >= 75) return "cell-high";
-    if (score >= 50) return "cell-medium";
-    if (score >= 25) return "cell-low";
-    return "cell-empty";
-  };
+  // Compute SVG coordinates for the Electric Blue Area Line Chart
+  const areaChartPoints = useMemo(() => {
+    if (!daysList.length) return { pathD: "", areaD: "", points: [] };
+
+    const svgWidth = 1000;
+    const svgHeight = 160;
+    const paddingX = 20;
+    const paddingY = 20;
+    const usableWidth = svgWidth - paddingX * 2;
+    const usableHeight = svgHeight - paddingY * 2;
+
+    const points = daysList.map((d, idx) => {
+      const x = paddingX + (idx / Math.max(daysList.length - 1, 1)) * usableWidth;
+      const score = Math.min(Math.max(d.score_percent || 0, 0), 100);
+      const y = svgHeight - paddingY - (score / 100) * usableHeight;
+      return { x, y, day: d.day, date: d.date, score, weekday: d.weekday, done: d.done_count, goal: d.goal_count };
+    });
+
+    // Build smooth cubic bezier or line path
+    let pathD = `M ${points[0].x} ${points[0].y}`;
+    for (let i = 1; i < points.length; i++) {
+      const prev = points[i - 1];
+      const curr = points[i];
+      const cp1x = prev.x + (curr.x - prev.x) / 2;
+      const cp1y = prev.y;
+      const cp2x = prev.x + (curr.x - prev.x) / 2;
+      const cp2y = curr.y;
+      pathD += ` C ${cp1x} ${cp1y}, ${cp2x} ${cp2y}, ${curr.x} ${curr.y}`;
+    }
+
+    const firstPt = points[0];
+    const lastPt = points[points.length - 1];
+    const areaD = `${pathD} L ${lastPt.x} ${svgHeight - paddingY} L ${firstPt.x} ${svgHeight - paddingY} Z`;
+
+    return { pathD, areaD, points };
+  }, [daysList]);
+
+  // Overall Month Stats
+  const monthDoneTotal = useMemo(() => {
+    return daysList.reduce((acc, d) => acc + (d.done_count || 0), 0);
+  }, [daysList]);
+
+  const monthGoalTotal = useMemo(() => {
+    return daysList.reduce((acc, d) => acc + (d.goal_count || 0), 0);
+  }, [daysList]);
+
+  const monthScoreAvg = useMemo(() => {
+    if (!monthGoalTotal) return 0;
+    return Math.round((monthDoneTotal / monthGoalTotal) * 100);
+  }, [monthDoneTotal, monthGoalTotal]);
 
   return (
-    <div className="discipline-root">
+    <div className="disc-matrix-page-root">
+      {/* Background Ambient Glows */}
+      <div className="disc-ambient-glow top-cyan"></div>
+      <div className="disc-ambient-glow bottom-magenta"></div>
+
       {/* Toast Notification */}
       {toastMessage && (
-        <div className="discipline-toast">
-          <CheckCircle2 size={16} />
+        <div className="disc-floating-toast">
+          <Sparkles size={14} className="toast-icon" />
           <span>{toastMessage}</span>
         </div>
       )}
 
-      {/* Confetti celebration overlay */}
-      {showConfetti && <div className="celebration-burst"></div>}
-
       {/* ========================================================================= */}
-      {/* 1. TOP BANNER & MISSION 2026 HEADER */}
+      {/* 01. TOP NAVIGATION & HEADER */}
       {/* ========================================================================= */}
-      <div className="mission-header-card">
-        <div className="mission-header-top">
-          <div className="mission-branding">
-            <div className="mission-icon-halo">
-              <Zap size={24} className="mission-bolt-icon" />
-            </div>
-            <div>
-              <div className="mission-tagline-badge">
-                <Target size={13} />
-                <span>MISSION 2026</span>
-              </div>
-              <h1 className="mission-main-title">Discipline Dashboard</h1>
-              <p className="mission-subtitle">{currentQuote}</p>
-            </div>
-          </div>
-
-          <div className="mission-actions">
-            <button
-              className="btn-mission-refresh"
-              onClick={loadDashboardData}
-              disabled={loading}
-              title="Refresh Data"
-            >
-              <RefreshCw size={15} className={loading ? "spin" : ""} />
-              <span>Sync</span>
-            </button>
-            <button
-              className="btn-mission-back"
-              onClick={() => navigate("/dashboard")}
-            >
-              <span>Main LifeOS</span>
-              <ArrowRight size={14} />
-            </button>
-          </div>
-        </div>
-
-        {/* 2026 Year Compounding Progress Bar */}
-        <div className="mission-progress-block">
-          <div className="mission-progress-labels">
-            <span className="progress-title">
-              <Sparkles size={14} className="text-accent" />
-              2026 Annual Consistency Rate
-            </span>
-            <span className="progress-percentage">
-              {analyticsData?.overall_year_discipline || todayData?.year_2026_progress?.yearly_score || 0}%
-            </span>
-          </div>
-          <div className="mission-progress-track">
-            <div
-              className="mission-progress-fill"
-              style={{
-                width: `${Math.min(
-                  analyticsData?.overall_year_discipline || todayData?.year_2026_progress?.yearly_score || 0,
-                  100
-                )}%`,
-              }}
-            ></div>
-          </div>
-          <div className="mission-progress-footer">
-            <span>
-              📅 {todayData?.year_2026_progress?.days_passed || 0} Days Passed
-            </span>
-            <span>
-              ⏳ {todayData?.year_2026_progress?.days_remaining || 0} Days Remaining in 2026
-            </span>
-          </div>
-        </div>
-
-        {/* Top 4 Core Metrics Cards */}
-        <div className="mission-metrics-grid">
-          <div className="metric-box box-score">
-            <div className="metric-icon-wrap blue">
-              <Target size={20} />
-            </div>
-            <div className="metric-details">
-              <span className="metric-label">Discipline Score</span>
-              <h2 className="metric-val">
-                {analyticsData?.overall_year_discipline || todayData?.year_2026_progress?.yearly_score || 0}%
-              </h2>
-              <span className="metric-hint">Overall 2026 Avg</span>
-            </div>
-          </div>
-
-          <div className="metric-box box-streak">
-            <div className="metric-icon-wrap flame">
-              <Flame size={20} />
-            </div>
-            <div className="metric-details">
-              <span className="metric-label">Current Streak</span>
-              <h2 className="metric-val">
-                {analyticsData?.streaks?.current_streak || todayData?.current_streak || 0}
-                <span className="unit-day"> Days</span>
-              </h2>
-              <span className="metric-hint">Active Unbroken Chain</span>
-            </div>
-          </div>
-
-          <div className="metric-box box-best">
-            <div className="metric-icon-wrap gold">
-              <Trophy size={20} />
-            </div>
-            <div className="metric-details">
-              <span className="metric-label">Longest Streak</span>
-              <h2 className="metric-val">
-                {analyticsData?.streaks?.longest_streak || 0}
-                <span className="unit-day"> Days</span>
-              </h2>
-              <span className="metric-hint">2026 Personal Best</span>
-            </div>
-          </div>
-
-          <div className="metric-box box-perfect">
-            <div className="metric-icon-wrap emerald">
-              <Star size={20} />
-            </div>
-            <div className="metric-details">
-              <span className="metric-label">Perfect Days</span>
-              <h2 className="metric-val">
-                {analyticsData?.streaks?.perfect_days || todayData?.year_2026_progress?.perfect_days || 0}
-              </h2>
-              <span className="metric-hint">100% Completed</span>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Error state */}
-      {error && (
-        <div className="discipline-error-banner">
-          <AlertCircle size={18} />
-          <span>{error}</span>
-          <button onClick={loadDashboardData} className="btn-error-retry">
-            Retry
+      <header className="disc-top-header">
+        <div className="header-left-col">
+          <button
+            className="btn-back-dash"
+            onClick={() => navigate("/dashboard")}
+            data-cursor="pointer"
+          >
+            <ChevronLeft size={16} />
+            <span>Dashboard</span>
           </button>
-        </div>
-      )}
-
-      {/* ========================================================================= */}
-      {/* 2. SECTION A — TODAY'S DAILY DISCIPLINE TRACKER */}
-      {/* ========================================================================= */}
-      <div className="daily-tracker-card">
-        <div className="daily-tracker-header">
-          <div className="daily-date-group">
-            <div className="today-badge">TODAY'S MISSION</div>
-            <h2 className="daily-date-title">
-              {today.toLocaleDateString("en-US", {
-                weekday: "long",
-                month: "long",
-                day: "numeric",
-                year: "numeric",
-              })}
-            </h2>
-          </div>
-
-          <div className="daily-score-badge-wrap">
-            <div
-              className={`score-ring ${
-                todayData?.today?.daily_score === 100
-                  ? "perfect"
-                  : todayData?.today?.daily_score >= 75
-                  ? "disciplined"
-                  : "progress"
-              }`}
-            >
-              <span className="score-num">
-                {todayData?.today?.daily_score || 0}%
-              </span>
-            </div>
-            <div className="score-text-info">
-              <span className="score-title">Daily Score</span>
-              <span className="score-status-desc">
-                {todayData?.today?.daily_score === 100
-                  ? "🎉 Perfect Day"
-                  : todayData?.today?.daily_score >= 75
-                  ? "💪 Disciplined Day"
-                  : "⏳ In Progress"}
-              </span>
-            </div>
+          <div className="header-title-badge">
+            <span className="live-pulse-radar"></span>
+            <span className="title-txt">DISCIPLINE MATRIX &bull; {currentYear}</span>
           </div>
         </div>
 
-        {/* 4 Interactive Habit Checklist Cards */}
-        <div className="habit-cards-grid">
-          {/* Habit 1: Gym */}
-          <div
-            className={`habit-card ${
-              todayData?.today?.gym_completed ? "completed" : "pending"
-            }`}
-            onClick={() => handleToggleTodayHabit("gym_completed")}
-          >
-            <div className="habit-card-left">
-              <div className="habit-icon-avatar gym">
-                <Dumbbell size={20} />
-              </div>
-              <div className="habit-info">
-                <span className="habit-name">Gym</span>
-                <span className="habit-subtext">Workout & Physical Fitness</span>
-              </div>
-            </div>
-            <div className="habit-toggle-btn">
-              {todayData?.today?.gym_completed ? (
-                <CheckCircle2 size={24} className="check-done-icon" />
-              ) : (
-                <Circle size={24} className="check-pending-icon" />
-              )}
-            </div>
-          </div>
-
-          {/* Habit 2: Job */}
-          <div
-            className={`habit-card ${
-              todayData?.today?.job_completed ? "completed" : "pending"
-            }`}
-            onClick={() => handleToggleTodayHabit("job_completed")}
-          >
-            <div className="habit-card-left">
-              <div className="habit-icon-avatar job">
-                <Briefcase size={20} />
-              </div>
-              <div className="habit-info">
-                <span className="habit-name">Job</span>
-                <span className="habit-subtext">Career, Deliverables & Tasks</span>
-              </div>
-            </div>
-            <div className="habit-toggle-btn">
-              {todayData?.today?.job_completed ? (
-                <CheckCircle2 size={24} className="check-done-icon" />
-              ) : (
-                <Circle size={24} className="check-pending-icon" />
-              )}
-            </div>
-          </div>
-
-          {/* Habit 3: Study */}
-          <div
-            className={`habit-card ${
-              todayData?.today?.study_completed ? "completed" : "pending"
-            }`}
-            onClick={() => handleToggleTodayHabit("study_completed")}
-          >
-            <div className="habit-card-left">
-              <div className="habit-icon-avatar study">
-                <BookOpen size={20} />
-              </div>
-              <div className="habit-info">
-                <span className="habit-name">Study</span>
-                <span className="habit-subtext">Data Analytics, SQL, Python</span>
-              </div>
-            </div>
-            <div className="habit-toggle-btn">
-              {todayData?.today?.study_completed ? (
-                <CheckCircle2 size={24} className="check-done-icon" />
-              ) : (
-                <Circle size={24} className="check-pending-icon" />
-              )}
-            </div>
-          </div>
-
-          {/* Habit 4: Project */}
-          <div
-            className={`habit-card ${
-              todayData?.today?.project_completed ? "completed" : "pending"
-            }`}
-            onClick={() => handleToggleTodayHabit("project_completed")}
-          >
-            <div className="habit-card-left">
-              <div className="habit-icon-avatar project">
-                <Code2 size={20} />
-              </div>
-              <div className="habit-info">
-                <span className="habit-name">Project</span>
-                <span className="habit-subtext">LifeOS & Portfolio Building</span>
-              </div>
-            </div>
-            <div className="habit-toggle-btn">
-              {todayData?.today?.project_completed ? (
-                <CheckCircle2 size={24} className="check-done-icon" />
-              ) : (
-                <Circle size={24} className="check-pending-icon" />
-              )}
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* ========================================================================= */}
-      {/* 3. SECTION B — YEAR 2026 MONTH-WISE CALENDAR & HEATMAP */}
-      {/* ========================================================================= */}
-      <div className="calendar-section-card">
-        <div className="calendar-header-bar">
-          <div className="calendar-title-group">
-            <Calendar size={20} className="text-accent" />
-            <div>
-              <h3 className="calendar-heading">
-                {FULL_MONTH_NAMES[selectedMonth - 1]} 2026 Discipline Grid
-              </h3>
-              <p className="calendar-subheading">
-                Click any date to view details, notes, or record past activities
-              </p>
-            </div>
-          </div>
-
-          {/* Month summary pill */}
-          <div className="month-summary-pills">
-            <span className="summary-pill score">
-              Score: <strong>{monthData?.summary?.monthly_score || 0}%</strong>
-            </span>
-            <span className="summary-pill perfect">
-              ⭐ {monthData?.summary?.perfect_days || 0} Perfect
-            </span>
-            <span className="summary-pill disciplined">
-              🔥 {monthData?.summary?.disciplined_days || 0} Disciplined
-            </span>
-          </div>
-        </div>
-
-        {/* 12 Months Selector Bar */}
-        <div className="months-nav-bar">
-          {MONTH_NAMES.map((mName, idx) => {
-            const mIndex = idx + 1;
-            const isSelected = selectedMonth === mIndex;
-            const monthAnalyticsObj = analyticsData?.monthly_scores?.find(
-              (m) => m.month_index === mIndex
-            );
+        {/* Month Selector Pills */}
+        <div className="month-selector-track">
+          {FULL_MONTH_NAMES.map((name, idx) => {
+            const mNum = idx + 1;
+            const isSelected = selectedMonth === mNum;
+            const isCurrent = currentMonthIndex === mNum;
             return (
               <button
-                key={mIndex}
-                className={`month-tab-btn ${isSelected ? "active" : ""}`}
-                onClick={() => setSelectedMonth(mIndex)}
+                key={mNum}
+                className={`month-tab-pill ${isSelected ? "active" : ""} ${isCurrent ? "current-month" : ""}`}
+                onClick={() => setSelectedMonth(mNum)}
+                data-cursor="pointer"
               >
-                <span className="month-tab-name">{mName}</span>
-                {monthAnalyticsObj && monthAnalyticsObj.status !== "upcoming" && (
-                  <span className="month-tab-score">
-                    {Math.round(monthAnalyticsObj.score)}%
-                  </span>
-                )}
+                <span>{name.toUpperCase()}</span>
+                {isCurrent && <span className="current-dot"></span>}
               </button>
             );
           })}
         </div>
 
-        {/* Month Calendar Grid (Mon - Sun) */}
-        <div className="calendar-grid-wrapper">
-          {/* Weekday headers */}
-          <div className="calendar-weekdays-row">
-            {WEEKDAY_NAMES.map((w) => (
-              <div key={w} className="weekday-header-cell">
-                {w}
-              </div>
-            ))}
+        <div className="header-right-col">
+          <ThemeToggle />
+          <div className="header-stat-pill">
+            <Flame size={15} className="text-orange" />
+            <span>{matrixData?.current_streak || 0} DAY STREAK</span>
           </div>
-
-          {/* Days Grid */}
-          <div className="calendar-days-grid">
-            {/* Empty offset padding cells before first day */}
-            {monthData &&
-              Array.from({ length: monthData.first_day_weekday }).map((_, i) => (
-                <div key={`empty-${i}`} className="calendar-day-cell empty-offset"></div>
-              ))}
-
-            {/* Days in Month */}
-            {monthData?.days?.map((day) => {
-              const colorClass = getHeatmapColorClass(
-                day.daily_score,
-                day.is_future,
-                day.is_today
-              );
-              return (
-                <div
-                  key={day.date}
-                  className={`calendar-day-cell ${colorClass} ${
-                    day.is_today ? "is-today-cell" : ""
-                  }`}
-                  onClick={() => handleOpenDayModal(day)}
-                  title={`${day.date}: ${day.daily_score}%`}
-                >
-                  <div className="day-cell-top">
-                    <span className="day-number">{day.day_number}</span>
-                    {day.is_perfect && <Star size={10} className="star-perfect-icon" />}
-                  </div>
-
-                  {!day.is_future && (
-                    <div className="day-habit-dots">
-                      <span className={`h-dot ${day.gym_completed ? "done" : ""}`} title="Gym" />
-                      <span className={`h-dot ${day.job_completed ? "done" : ""}`} title="Job" />
-                      <span className={`h-dot ${day.study_completed ? "done" : ""}`} title="Study" />
-                      <span className={`h-dot ${day.project_completed ? "done" : ""}`} title="Project" />
-                    </div>
-                  )}
-
-                  {!day.is_future && (
-                    <span className="day-score-tag">{Math.round(day.daily_score)}%</span>
-                  )}
-                  {day.is_future && <span className="day-future-label">Upcoming</span>}
-                </div>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* Heatmap Legend */}
-        <div className="heatmap-legend-row">
-          <span className="legend-title">Discipline Heatmap Scale:</span>
-          <div className="legend-items">
-            <span className="legend-box cell-empty"></span>
-            <span className="legend-text">0%</span>
-            <span className="legend-box cell-low"></span>
-            <span className="legend-text">25%</span>
-            <span className="legend-box cell-medium"></span>
-            <span className="legend-text">50%</span>
-            <span className="legend-box cell-high"></span>
-            <span className="legend-text">75%</span>
-            <span className="legend-box cell-perfect"></span>
-            <span className="legend-text">100% (Perfect Day)</span>
-          </div>
-        </div>
-      </div>
-
-      {/* ========================================================================= */}
-      {/* 4. SECTION C — 365-DAY YEAR CONTRIBUTION HEATMAP */}
-      {/* ========================================================================= */}
-      <div className="annual-heatmap-card">
-        <div className="annual-heatmap-header">
-          <div className="annual-title-group">
-            <Flame size={18} className="text-accent" />
-            <h3>2026 Annual Consistency Matrix (365 Days)</h3>
-          </div>
-          <span className="annual-badge">
-            {todayData?.year_2026_progress?.disciplined_days || 0} Disciplined Days Logged
-          </span>
-        </div>
-
-        <div className="annual-matrix-scroll">
-          <div className="annual-matrix-grid">
-            {yearHeatmap?.days?.map((d) => (
-              <div
-                key={d.date}
-                className={`matrix-dot ${getHeatmapColorClass(
-                  d.score,
-                  d.is_future,
-                  d.is_today
-                )}`}
-                onClick={() =>
-                  handleOpenDayModal({
-                    date: d.date,
-                    daily_score: d.score,
-                    is_future: d.is_future,
-                    is_today: d.is_today,
-                  })
-                }
-                title={`${d.date}: ${d.score}% completed (${d.completed_count}/4 habits)`}
-              ></div>
-            ))}
-          </div>
-        </div>
-      </div>
-
-      {/* ========================================================================= */}
-      {/* 5. SECTION D & E — BMW S1000 GOAL & QUARTERLY ANALYTICS */}
-      {/* ========================================================================= */}
-      <div className="analytics-motivation-split">
-        {/* SECTION E: 🏍️ BMW S1000 MOTIVATION SYSTEM */}
-        <div className="bmw-s1000-card">
-          <div className="bmw-header">
-            <div className="bmw-logo-group">
-              <span className="bmw-badge-pill">LONG TERM MISSION</span>
-              <h3 className="bmw-title">🏍️ BMW S1000 RR</h3>
-            </div>
-            <div className="bmw-tier-tag">
-              {analyticsData?.bmw_motivation?.tier || "Performance Tier"}
-            </div>
-          </div>
-
-          <p className="bmw-motto">“RIDE TOWARDS YOUR GOAL”</p>
-
-          {/* Personalized Rider Character Preview */}
-          <div
-            className="bmw-rider-cinematic-banner"
-            style={{ backgroundImage: `url(${riderBg})` }}
+          <button
+            className="btn-header-refresh"
+            onClick={() => loadMonthData(selectedMonth)}
+            title="Refresh Data"
+            disabled={loading}
           >
-            <div className="rider-banner-overlay">
-              <span className="rider-banner-tag">ME — RIDING TOWARD MY GOALS</span>
-            </div>
-          </div>
-
-          {/* Tachometer / Futuristic Gauge visual */}
-          <div className="bmw-tachometer-box">
-            <div className="bmw-progress-circle-wrap">
-              <div className="bmw-glow-ring">
-                <span className="bmw-percent-text">
-                  {analyticsData?.bmw_motivation?.progress_percent || 0}%
-                </span>
-                <span className="bmw-percent-sub">Goal Unlocked</span>
-              </div>
-            </div>
-
-            <div className="bmw-specs-list">
-              <div className="spec-row">
-                <span className="spec-name">Consistency Fuel:</span>
-                <span className="spec-val">
-                  {analyticsData?.overall_year_discipline || 0}%
-                </span>
-              </div>
-              <div className="spec-row">
-                <span className="spec-name">Streak Momentum:</span>
-                <span className="spec-val">
-                  {analyticsData?.streaks?.current_streak || 0} Days 🔥
-                </span>
-              </div>
-              <div className="spec-row">
-                <span className="spec-name">Perfect Pitstops:</span>
-                <span className="spec-val">
-                  {analyticsData?.streaks?.perfect_days || 0} Days ⭐
-                </span>
-              </div>
-            </div>
-          </div>
-
-          {/* Progress bar */}
-          <div className="bmw-bar-track">
-            <div
-              className="bmw-bar-fill"
-              style={{
-                width: `${Math.min(
-                  analyticsData?.bmw_motivation?.progress_percent || 0,
-                  100
-                )}%`,
-              }}
-            ></div>
-          </div>
-
-          <div className="bmw-quote-card">
-            <p className="bmw-quote-text">
-              {analyticsData?.bmw_motivation?.quote ||
-                "“The bike is the reward. Discipline is the price.”"}
-            </p>
-            <span className="bmw-quote-author">
-              {analyticsData?.bmw_motivation?.tagline ||
-                "“Every disciplined day takes you one step closer.”"}
-            </span>
-          </div>
+            <RefreshCw size={14} className={loading ? "spin" : ""} />
+          </button>
         </div>
+      </header>
 
-        {/* SECTION F: DYNAMIC SELF-IMPROVEMENT INSIGHTS */}
-        <div className="self-improvement-card">
-          <div className="improve-header">
-            <div className="improve-title-group">
-              <TrendingUp size={20} className="text-emerald" />
-              <h3>Improve Yourself (AI Insights)</h3>
+      {/* ========================================================================= */}
+      {/* 02. TOP AREA CHART: MONTHLY OVERVIEW (Electric Cyan/Blue Spline) */}
+      {/* ========================================================================= */}
+      <section className="disc-section-top-area">
+        <div className="area-chart-container glass-card">
+          <div className="area-chart-header">
+            <div className="ach-left">
+              <span className="ach-kicker">{FULL_MONTH_NAMES[selectedMonth - 1]?.toUpperCase()} OVERVIEW</span>
+              <h2 className="ach-title">Daily Discipline Trajectory</h2>
             </div>
-            <span className="badge-live-ai">Live Data Analysis</span>
+            <div className="ach-stats-row">
+              <div className="ach-stat-item">
+                <span className="stat-lbl">MONTH SCORE</span>
+                <span className="stat-val cyan">{monthScoreAvg}%</span>
+              </div>
+              <div className="ach-stat-item">
+                <span className="stat-lbl">TOTAL DONE</span>
+                <span className="stat-val emerald">{monthDoneTotal}</span>
+              </div>
+              <div className="ach-stat-item">
+                <span className="stat-lbl">TARGET GOAL</span>
+                <span className="stat-val">{monthGoalTotal}</span>
+              </div>
+            </div>
           </div>
 
-          {/* 4 Pillars Habit Performance */}
-          <div className="habit-meters-block">
-            <h4 className="block-sub-title">Habit Consistency Breakdown</h4>
-            {analyticsData?.habit_consistency && (
-              <div className="habit-bars-stack">
-                <div className="h-bar-item">
-                  <div className="h-bar-info">
-                    <span className="h-name">🏋️ Gym Consistency</span>
-                    <span className="h-score">
-                      {analyticsData.habit_consistency.Gym}%
-                    </span>
-                  </div>
-                  <div className="h-track">
-                    <div
-                      className="h-fill gym"
-                      style={{ width: `${analyticsData.habit_consistency.Gym}%` }}
-                    ></div>
-                  </div>
-                </div>
+          {/* SVG Electric Area Chart */}
+          <div className="area-svg-wrapper">
+            {/* Y-Axis scale labels */}
+            <div className="area-y-axis">
+              <span>100%</span>
+              <span>80%</span>
+              <span>60%</span>
+              <span>40%</span>
+              <span>20%</span>
+              <span>0%</span>
+            </div>
 
-                <div className="h-bar-item">
-                  <div className="h-bar-info">
-                    <span className="h-name">💼 Job Consistency</span>
-                    <span className="h-score">
-                      {analyticsData.habit_consistency.Job}%
-                    </span>
-                  </div>
-                  <div className="h-track">
-                    <div
-                      className="h-fill job"
-                      style={{ width: `${analyticsData.habit_consistency.Job}%` }}
-                    ></div>
-                  </div>
-                </div>
+            <svg
+              viewBox="0 0 1000 160"
+              preserveAspectRatio="none"
+              className="electric-area-svg"
+            >
+              <defs>
+                {/* Electric Cyan Neon Gradient */}
+                <linearGradient id="areaGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+                  <stop offset="0%" stopColor="#00f2fe" stopOpacity="0.55" />
+                  <stop offset="40%" stopColor="#00b4d8" stopOpacity="0.3" />
+                  <stop offset="100%" stopColor="#07090e" stopOpacity="0.0" />
+                </linearGradient>
+                {/* Line Glow Filter */}
+                <filter id="neonGlow" x="-20%" y="-20%" width="140%" height="140%">
+                  <feGaussianBlur stdDeviation="3" result="blur" />
+                  <feMerge>
+                    <feMergeNode in="blur" />
+                    <feMergeNode in="SourceGraphic" />
+                  </feMerge>
+                </filter>
+              </defs>
 
-                <div className="h-bar-item">
-                  <div className="h-bar-info">
-                    <span className="h-name">📚 Study Consistency</span>
-                    <span className="h-score">
-                      {analyticsData.habit_consistency.Study}%
-                    </span>
-                  </div>
-                  <div className="h-track">
-                    <div
-                      className="h-fill study"
-                      style={{ width: `${analyticsData.habit_consistency.Study}%` }}
-                    ></div>
-                  </div>
-                </div>
+              {/* Horizontal Grid lines */}
+              <line x1="20" y1="20" x2="980" y2="20" stroke="rgba(255,255,255,0.06)" strokeDasharray="4 4" />
+              <line x1="20" y1="50" x2="980" y2="50" stroke="rgba(255,255,255,0.06)" strokeDasharray="4 4" />
+              <line x1="20" y1="80" x2="980" y2="80" stroke="rgba(255,255,255,0.06)" strokeDasharray="4 4" />
+              <line x1="20" y1="110" x2="980" y2="110" stroke="rgba(255,255,255,0.06)" strokeDasharray="4 4" />
+              <line x1="20" y1="140" x2="980" y2="140" stroke="rgba(255,255,255,0.06)" strokeDasharray="4 4" />
 
-                <div className="h-bar-item">
-                  <div className="h-bar-info">
-                    <span className="h-name">💻 Project Consistency</span>
-                    <span className="h-score">
-                      {analyticsData.habit_consistency.Project}%
-                    </span>
+              {/* Filled Area */}
+              {areaChartPoints.areaD && (
+                <path d={areaChartPoints.areaD} fill="url(#areaGradient)" />
+              )}
+
+              {/* Neon Spline Path */}
+              {areaChartPoints.pathD && (
+                <path
+                  d={areaChartPoints.pathD}
+                  fill="none"
+                  stroke="#00f2fe"
+                  strokeWidth="2.5"
+                  filter="url(#neonGlow)"
+                />
+              )}
+
+              {/* Interactive Data Points */}
+              {areaChartPoints.points.map((pt, idx) => (
+                <circle
+                  key={idx}
+                  cx={pt.x}
+                  cy={pt.y}
+                  r="3.5"
+                  className={`area-point-dot ${hoveredAreaPoint?.day === pt.day ? "active" : ""}`}
+                  onMouseEnter={() => setHoveredAreaPoint(pt)}
+                  onMouseLeave={() => setHoveredAreaPoint(null)}
+                />
+              ))}
+            </svg>
+
+            {/* Hover Tooltip Card */}
+            {hoveredAreaPoint && (
+              <div
+                className="area-hover-tooltip"
+                style={{
+                  left: `${(hoveredAreaPoint.x / 1000) * 100}%`,
+                }}
+              >
+                <div className="tooltip-header">
+                  <span>{hoveredAreaPoint.weekday} {hoveredAreaPoint.day} {FULL_MONTH_NAMES[selectedMonth - 1]}</span>
+                </div>
+                <div className="tooltip-body">
+                  <div className="tooltip-score">
+                    <span className="sc-lbl">Score</span>
+                    <span className="sc-val">{hoveredAreaPoint.score}%</span>
                   </div>
-                  <div className="h-track">
-                    <div
-                      className="h-fill project"
-                      style={{
-                        width: `${analyticsData.habit_consistency.Project}%`,
-                      }}
-                    ></div>
+                  <div className="tooltip-count">
+                    <span>{hoveredAreaPoint.done} / {hoveredAreaPoint.goal} Habits</span>
                   </div>
                 </div>
               </div>
             )}
           </div>
+        </div>
+      </section>
 
-          {/* Highlight Insights Box */}
-          <div className="insights-feed-box">
-            <div className="strong-weak-grid">
-              <div className="sw-pill strong">
-                <span className="sw-tag">🟢 Strongest Habit</span>
-                <span className="sw-val">
-                  {analyticsData?.self_improvement?.strongest_habit?.name || "Gym"} (
-                  {analyticsData?.self_improvement?.strongest_habit?.consistency || 0}%)
-                </span>
-              </div>
-              <div className="sw-pill weak">
-                <span className="sw-tag">🔴 Needs Focus</span>
-                <span className="sw-val">
-                  {analyticsData?.self_improvement?.weakest_habit?.name || "Project"} (
-                  {analyticsData?.self_improvement?.weakest_habit?.consistency || 0}%)
-                </span>
-              </div>
+      {/* ========================================================================= */}
+      {/* 03. CENTER: SPREADSHEET HABIT CHECKBOX MATRIX */}
+      {/* ========================================================================= */}
+      <section className="disc-section-matrix">
+        <div className="spreadsheet-card glass-card">
+          <div className="spreadsheet-header-bar">
+            <div className="sh-left">
+              <span className="sh-badge">HABIT MATRIX</span>
+              <h3 className="sh-title">Daily Execution Tracking</h3>
             </div>
-
-            <div className="focus-advice-card">
-              <div className="focus-title">
-                <Target size={15} />
-                <span>Focus Recommendation For Next Month:</span>
-              </div>
-              <p className="focus-desc">
-                {analyticsData?.self_improvement?.focus_recommendation ||
-                  "Maintain study and project habits early in the morning."}
-              </p>
+            <div className="sh-legend">
+              <span className="legend-tag w1"><span className="dot"></span>Week 1</span>
+              <span className="legend-tag w2"><span className="dot"></span>Week 2</span>
+              <span className="legend-tag w3"><span className="dot"></span>Week 3</span>
+              <span className="legend-tag w4"><span className="dot"></span>Week 4</span>
+              {weeksSummary.length > 4 && (
+                <span className="legend-tag w5"><span className="dot"></span>Week 5</span>
+              )}
             </div>
           </div>
-        </div>
-      </div>
 
-      {/* ========================================================================= */}
-      {/* 6. SECTION D — QUARTERLY ANALYTICS & MONTHLY SCORE PROGRESSION */}
-      {/* ========================================================================= */}
-      <div className="quarterly-section-card">
-        <div className="quarterly-header">
-          <div className="quarterly-title-group">
-            <BarChart3 size={20} className="text-accent" />
-            <h3>2026 Quarterly Performance Breakdown</h3>
+          <div className="matrix-table-scroll-container">
+            <table className="discipline-spreadsheet-table">
+              <thead>
+                {/* Top Header Row: Grouped by Weeks */}
+                <tr className="row-weeks-banner">
+                  <th className="col-sticky-routine" rowSpan={2}>
+                    <div className="th-routine-box">DAILY ROUTINES</div>
+                  </th>
+                  <th className="col-sticky-goal" rowSpan={2}>
+                    <div className="th-goal-box">GOALS</div>
+                  </th>
+                  {weeksSummary.map((w) => (
+                    <th
+                      key={w.week_num}
+                      colSpan={w.days_count}
+                      className={`th-week-header ${w.color_name}`}
+                    >
+                      <div className="week-header-inner">
+                        <span>{w.label}</span>
+                        <span className="week-badge">{w.progress_percent}%</span>
+                      </div>
+                    </th>
+                  ))}
+                </tr>
+
+                {/* Second Header Row: Day Names and Dates */}
+                <tr className="row-days-subheaders">
+                  {daysList.map((d) => (
+                    <th
+                      key={d.date}
+                      className={`th-day-col ${d.week_color} ${d.is_today ? "is-today" : ""} ${d.is_future ? "is-future" : ""}`}
+                    >
+                      <div className="day-col-header">
+                        <span className="day-weekday">{d.weekday}</span>
+                        <span className="day-number">{d.day}</span>
+                      </div>
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+
+              <tbody>
+                {/* Routine Rows with Interactive Checkboxes */}
+                {routinesList.map((routine) => {
+                  const completedDaysInMonth = daysList.filter(
+                    (d) => d.habits && d.habits[routine.key]
+                  ).length;
+
+                  return (
+                    <tr key={routine.key} className="routine-data-row">
+                      {/* Fixed Routine Name Column */}
+                      <td className="cell-routine-name col-sticky-routine">
+                        <div className="routine-name-wrap">
+                          <span className="routine-emoji">{routine.icon}</span>
+                          <span className="routine-label">{routine.label}</span>
+                        </div>
+                      </td>
+
+                      {/* Fixed Target Goal Column */}
+                      <td className="cell-routine-goal col-sticky-goal">
+                        <span className="goal-num">{daysList.length}</span>
+                      </td>
+
+                      {/* Day Checkbox Cells */}
+                      {daysList.map((d) => {
+                        const isChecked = Boolean(d.habits && d.habits[routine.key]);
+                        return (
+                          <td
+                            key={d.date}
+                            className={`cell-checkbox ${d.week_color} ${d.is_today ? "is-today" : ""} ${d.is_future ? "is-future-disabled" : ""}`}
+                            onClick={() => {
+                              if (d.is_future) {
+                                showToast("Future dates are locked.");
+                                return;
+                              }
+                              handleCellToggle(d.date, routine.key, isChecked);
+                            }}
+                            data-cursor={d.is_future ? "not-allowed" : "pointer"}
+                            title={d.is_future ? "Future date locked" : undefined}
+                          >
+                            <div className={`matrix-checkbox-box ${isChecked ? "checked" : ""} ${d.is_future ? "disabled" : ""}`}>
+                              {isChecked ? <Check size={12} strokeWidth={3.5} /> : null}
+                            </div>
+                          </td>
+                        );
+                      })}
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
           </div>
         </div>
+      </section>
 
-        <div className="quarters-grid">
-          {analyticsData?.quarterly_analytics?.map((q) => (
-            <div key={q.quarter} className={`quarter-card ${q.status}`}>
-              <div className="quarter-card-top">
-                <span className="quarter-id">{q.quarter}</span>
-                <span className="quarter-period">{q.title}</span>
-                <span className={`quarter-status-badge ${q.status}`}>
-                  {q.status === "completed"
-                    ? "Completed"
-                    : q.status === "in_progress"
-                    ? "Active"
-                    : "Upcoming"}
-                </span>
-              </div>
-
-              <div className="quarter-score-row">
-                <span className="q-score-num">{q.avg_score}%</span>
-                <span className="q-score-label">Avg Discipline</span>
-              </div>
-
-              <div className="quarter-stats-list">
-                <div className="q-stat-row">
-                  <span>🏋️ Gym:</span>
-                  <strong>{q.gym_consistency}%</strong>
-                </div>
-                <div className="q-stat-row">
-                  <span>💼 Job:</span>
-                  <strong>{q.job_consistency}%</strong>
-                </div>
-                <div className="q-stat-row">
-                  <span>📚 Study:</span>
-                  <strong>{q.study_consistency}%</strong>
-                </div>
-                <div className="q-stat-row">
-                  <span>💻 Project:</span>
-                  <strong>{q.project_consistency}%</strong>
-                </div>
-                <div className="q-stat-row highlight">
-                  <span>⭐ Perfect Days:</span>
-                  <strong>{q.perfect_days}</strong>
-                </div>
-                <div className="q-stat-row highlight">
-                  <span>🔥 Best Streak:</span>
-                  <strong>{q.best_streak} Days</strong>
-                </div>
-              </div>
+      {/* ========================================================================= */}
+      {/* 04. BOTTOM: MULTI-COLOR WEEKLY BAR CHART & ANALYTICS OVERVIEW */}
+      {/* ========================================================================= */}
+      <section className="disc-section-bottom-bars">
+        <div className="overview-analytics-card glass-card">
+          <div className="overview-header-row">
+            <div className="ov-left">
+              <span className="ov-badge">OVERVIEW &bull; ANALYTICS</span>
+              <h3 className="ov-title">Weekly Color-Coded Distribution</h3>
             </div>
-          ))}
-        </div>
-
-        {/* 12-Month Discipline Bar Chart */}
-        <div className="monthly-chart-block">
-          <h4 className="chart-block-title">Monthly Discipline Score Trend (2026)</h4>
-          <div className="monthly-bars-chart">
-            {analyticsData?.monthly_scores?.map((m) => (
-              <div key={m.month_index} className="month-chart-col">
-                <div className="bar-track">
-                  <div
-                    className={`bar-fill ${m.status}`}
-                    style={{ height: `${m.score}%` }}
-                    title={`${m.full_month_name}: ${m.score}%`}
-                  >
-                    {m.status !== "upcoming" && (
-                      <span className="bar-val-tooltip">{Math.round(m.score)}%</span>
-                    )}
-                  </div>
-                </div>
-                <span className="month-label-col">{m.month_name}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-
-      {/* ========================================================================= */}
-      {/* 7. DAILY DETAIL MODAL / DRAWER */}
-      {/* ========================================================================= */}
-      {isDetailModalOpen && selectedDayObj && (
-        <div className="modal-backdrop">
-          <div className="discipline-modal-box">
-            <div className="modal-header-row">
-              <div className="modal-header-text">
-                <div className="modal-pill-tag">DAILY DETAIL PANEL</div>
-                <h3 className="modal-date-heading">
-                  {selectedDayObj.date}
-                </h3>
-              </div>
+            <div className="ov-nav-tabs">
               <button
-                className="btn-modal-x"
-                onClick={() => setIsDetailModalOpen(false)}
+                className={`ov-tab-btn ${activeAnalyticsTab === "overview" ? "active" : ""}`}
+                onClick={() => setActiveAnalyticsTab("overview")}
               >
-                <X size={18} />
+                Weekly Bars
+              </button>
+              <button
+                className={`ov-tab-btn ${activeAnalyticsTab === "habits" ? "active" : ""}`}
+                onClick={() => setActiveAnalyticsTab("habits")}
+              >
+                Habit Breakdown
+              </button>
+              <button
+                className={`ov-tab-btn ${activeAnalyticsTab === "weekday" ? "active" : ""}`}
+                onClick={() => setActiveAnalyticsTab("weekday")}
+              >
+                Day Heatmap
               </button>
             </div>
-
-            <form onSubmit={handleSaveModalDay} className="modal-form-body">
-              <div className="modal-score-summary">
-                <div className="modal-score-circle">
-                  <span>{selectedDayObj.daily_score || 0}%</span>
-                </div>
-                <div>
-                  <h4 className="modal-status-text">
-                    {selectedDayObj.is_future
-                      ? "Upcoming Day"
-                      : selectedDayObj.daily_score === 100
-                      ? "🎉 Perfect 100% Day"
-                      : selectedDayObj.daily_score >= 75
-                      ? "💪 Disciplined Day"
-                      : "In Progress"}
-                  </h4>
-                  <p className="modal-quote-text">
-                    “Discipline beats motivation. Every single day.”
-                  </p>
-                </div>
-              </div>
-
-              {/* 4 Habit Toggles inside Modal */}
-              <div className="modal-habits-checklist">
-                <div
-                  className={`modal-habit-row ${
-                    modalFormState.gym_completed ? "checked" : ""
-                  }`}
-                  onClick={() =>
-                    !selectedDayObj.is_future &&
-                    setModalFormState({
-                      ...modalFormState,
-                      gym_completed: !modalFormState.gym_completed,
-                    })
-                  }
-                >
-                  <div className="m-habit-left">
-                    <Dumbbell size={18} className="text-blue" />
-                    <span>🏋️ Gym</span>
-                  </div>
-                  <div className="m-habit-checkbox">
-                    {modalFormState.gym_completed ? (
-                      <CheckCircle2 size={22} className="check-done" />
-                    ) : (
-                      <Circle size={22} className="check-pending" />
-                    )}
-                  </div>
-                </div>
-
-                <div
-                  className={`modal-habit-row ${
-                    modalFormState.job_completed ? "checked" : ""
-                  }`}
-                  onClick={() =>
-                    !selectedDayObj.is_future &&
-                    setModalFormState({
-                      ...modalFormState,
-                      job_completed: !modalFormState.job_completed,
-                    })
-                  }
-                >
-                  <div className="m-habit-left">
-                    <Briefcase size={18} className="text-amber" />
-                    <span>💼 Job</span>
-                  </div>
-                  <div className="m-habit-checkbox">
-                    {modalFormState.job_completed ? (
-                      <CheckCircle2 size={22} className="check-done" />
-                    ) : (
-                      <Circle size={22} className="check-pending" />
-                    )}
-                  </div>
-                </div>
-
-                <div
-                  className={`modal-habit-row ${
-                    modalFormState.study_completed ? "checked" : ""
-                  }`}
-                  onClick={() =>
-                    !selectedDayObj.is_future &&
-                    setModalFormState({
-                      ...modalFormState,
-                      study_completed: !modalFormState.study_completed,
-                    })
-                  }
-                >
-                  <div className="m-habit-left">
-                    <BookOpen size={18} className="text-purple" />
-                    <span>📚 Study</span>
-                  </div>
-                  <div className="m-habit-checkbox">
-                    {modalFormState.study_completed ? (
-                      <CheckCircle2 size={22} className="check-done" />
-                    ) : (
-                      <Circle size={22} className="check-pending" />
-                    )}
-                  </div>
-                </div>
-
-                <div
-                  className={`modal-habit-row ${
-                    modalFormState.project_completed ? "checked" : ""
-                  }`}
-                  onClick={() =>
-                    !selectedDayObj.is_future &&
-                    setModalFormState({
-                      ...modalFormState,
-                      project_completed: !modalFormState.project_completed,
-                    })
-                  }
-                >
-                  <div className="m-habit-left">
-                    <Code2 size={18} className="text-emerald" />
-                    <span>💻 Project</span>
-                  </div>
-                  <div className="m-habit-checkbox">
-                    {modalFormState.project_completed ? (
-                      <CheckCircle2 size={22} className="check-done" />
-                    ) : (
-                      <Circle size={22} className="check-pending" />
-                    )}
-                  </div>
-                </div>
-              </div>
-
-              {/* Notes input */}
-              <div className="modal-notes-group">
-                <label className="modal-label">Day Reflections / Notes</label>
-                <textarea
-                  rows={3}
-                  placeholder="Record your achievements, learnings, or thoughts for this day..."
-                  value={modalFormState.notes}
-                  onChange={(e) =>
-                    setModalFormState({ ...modalFormState, notes: e.target.value })
-                  }
-                  className="modal-textarea"
-                  disabled={selectedDayObj.is_future}
-                />
-              </div>
-
-              <div className="modal-actions-footer">
-                <button
-                  type="button"
-                  className="btn-modal-cancel"
-                  onClick={() => setIsDetailModalOpen(false)}
-                >
-                  Close
-                </button>
-                {!selectedDayObj.is_future && (
-                  <button
-                    type="submit"
-                    className="btn-modal-save"
-                    disabled={modalSaving}
-                  >
-                    {modalSaving ? "Saving..." : "Save Daily Discipline"}
-                  </button>
-                )}
-              </div>
-            </form>
           </div>
+
+          {activeAnalyticsTab === "overview" && (
+            <div className="bottom-bars-view-container">
+              {/* Daily Vertical Bars Grouped by Week */}
+              <div className="daily-bars-track-container">
+                <div className="bars-y-scale">
+                  <span>10</span>
+                  <span>7</span>
+                  <span>5</span>
+                  <span>2</span>
+                  <span>0</span>
+                </div>
+
+                <div className="bars-columns-grid">
+                  {daysList.map((d) => {
+                    const doneCnt = d.done_count || 0;
+                    const goalCnt = d.goal_count || 10;
+                    const heightPct = Math.round((doneCnt / Math.max(goalCnt, 1)) * 100);
+
+                    return (
+                      <div
+                        key={d.date}
+                        className={`daily-bar-column ${d.week_color} ${d.is_today ? "is-today" : ""}`}
+                        title={`${d.weekday} ${d.day}: ${doneCnt}/${goalCnt} habits (${heightPct}%)`}
+                      >
+                        <div className="bar-tube-slot">
+                          <div
+                            className="bar-tube-fill"
+                            style={{ height: `${heightPct}%` }}
+                          >
+                            {doneCnt > 0 && <span className="bar-num-tag">{doneCnt}</span>}
+                          </div>
+                        </div>
+                        <span className="bar-day-lbl">{d.day}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Data Table Rows beneath Bars: DONE, GOAL, OPEN, WEEKLY PROGRESS */}
+              <div className="bottom-analytics-matrix-table">
+                {/* DONE Row */}
+                <div className="matrix-metric-row">
+                  <div className="metric-header-cell">DONE</div>
+                  <div className="metric-values-cells">
+                    {daysList.map((d) => (
+                      <div key={d.date} className={`val-cell ${d.week_color} done`}>
+                        {d.done_count || 0}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* GOAL Row */}
+                <div className="matrix-metric-row">
+                  <div className="metric-header-cell">GOAL</div>
+                  <div className="metric-values-cells">
+                    {daysList.map((d) => (
+                      <div key={d.date} className="val-cell goal">
+                        {d.goal_count || 10}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* OPEN Row */}
+                <div className="matrix-metric-row">
+                  <div className="metric-header-cell">OPEN</div>
+                  <div className="metric-values-cells">
+                    {daysList.map((d) => (
+                      <div key={d.date} className="val-cell open">
+                        {d.open_count || 0}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* WEEKLY PROGRESS Row */}
+                <div className="matrix-metric-row progress-row">
+                  <div className="metric-header-cell">WEEKLY PROGRESS</div>
+                  <div className="weekly-progress-spans-container">
+                    {weeksSummary.map((w) => (
+                      <div
+                        key={w.week_num}
+                        className={`week-progress-block ${w.color_name}`}
+                        style={{ flex: w.days_count }}
+                      >
+                        <div className="prog-track">
+                          <div
+                            className="prog-fill"
+                            style={{ width: `${w.progress_percent}%` }}
+                          ></div>
+                        </div>
+                        <span className="prog-percent-text">{w.progress_percent}%</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* ========================================================================= */}
+          {/* 05. SUGGESTED GRAPH: HABIT BREAKDOWN & CONSISTENCY */}
+          {/* ========================================================================= */}
+          {activeAnalyticsTab === "habits" && (
+            <div className="analytics-tab-panel habit-adherence-panel">
+              <div className="habit-breakdown-grid">
+                {(matrixData?.habit_adherence || []).map((h) => (
+                  <div key={h.key} className="habit-stat-card glass-card">
+                    <div className="hsc-header">
+                      <span className="hsc-icon">{h.icon}</span>
+                      <div className="hsc-info">
+                        <span className="hsc-label">{h.label}</span>
+                        <span className="hsc-category">{h.category}</span>
+                      </div>
+                      <span className="hsc-pct cyan">{h.adherence_percent}%</span>
+                    </div>
+
+                    <div className="hsc-progress-bar">
+                      <div
+                        className="hsc-progress-fill"
+                        style={{ width: `${h.adherence_percent}%` }}
+                      ></div>
+                    </div>
+
+                    <div className="hsc-footer">
+                      <span>{h.completed_count} Days Completed</span>
+                      <span>Target: {h.goal_target} Days</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* ========================================================================= */}
+          {/* 06. SUGGESTED GRAPH: DAY-OF-WEEK BEHAVIORAL VARIANCE */}
+          {/* ========================================================================= */}
+          {activeAnalyticsTab === "weekday" && (
+            <div className="analytics-tab-panel weekday-heatmap-panel">
+              <div className="weekday-cards-grid">
+                {(matrixData?.day_of_week_distribution || []).map((day) => {
+                  const isStrong = day.adherence_percent >= 80;
+                  const isWeak = day.adherence_percent < 50;
+
+                  return (
+                    <div key={day.day_name} className="weekday-card glass-card">
+                      <div className="wd-header">
+                        <span className="wd-name">{day.day_name}</span>
+                        <span className={`wd-badge ${isStrong ? "strong" : isWeak ? "weak" : "med"}`}>
+                          {day.adherence_percent}%
+                        </span>
+                      </div>
+
+                      <div className="wd-bar-wrapper">
+                        <div
+                          className={`wd-bar-fill ${isStrong ? "strong" : isWeak ? "weak" : "med"}`}
+                          style={{ height: `${day.adherence_percent}%` }}
+                        ></div>
+                      </div>
+
+                      <div className="wd-footer">
+                        <span>{day.done} of {day.total} Routines</span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
         </div>
-      )}
+      </section>
     </div>
   );
 }
