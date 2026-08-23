@@ -12,8 +12,8 @@ export const PORTFOLIO_CONFIG = {
   status: "OPEN TO DATA ANALYST / DATA SCIENTIST OPPORTUNITIES",
   lifeosUrl: "/login", // Local LifeOS route or environment URL
   githubUrl: "https://github.com/abhishekmahto01",
-  linkedinUrl: "https://linkedin.com/in/",
-  email: "abhishekmahto.work@gmail.com",
+  linkedinUrl: "https://www.linkedin.com/in/abhishekmahto01/",
+  email: "mahtoabhi07@gmail.com",
 };
 
 // 1. HERO TELEMETRY PROFILE
