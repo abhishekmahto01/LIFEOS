@@ -55,7 +55,3 @@ LIFEOS/
   npm run build:frontend
   ```
 
-  - **Build Frontend:**
-  ```bash
-  npm run build:frontend
-  ```

@@ -12,6 +12,13 @@ import Login from "./pages/Login";
 import JobEntryForm from "./pages/career/job/JobEntryForm.jsx";
 import JobApplyHistory from "./pages/career/job/JobApplyHistory.jsx";
 
+import SocialMediaDashboard from "./pages/social-media/SocialMediaDashboard.jsx";
+import CreatePost from "./pages/social-media/CreatePost.jsx";
+import ContentCalendar from "./pages/social-media/ContentCalendar.jsx";
+import ConnectedAccounts from "./pages/social-media/ConnectedAccounts.jsx";
+import PostHistory from "./pages/social-media/PostHistory.jsx";
+import SocialAnalytics from "./pages/social-media/SocialAnalytics.jsx";
+
 function App() {
   return (
     <Router>
@@ -30,6 +37,14 @@ function App() {
           <Route path="/career/job-entry" element={<JobEntryForm />} />
           <Route path="/career/job-history" element={<JobApplyHistory />} />
           <Route path="/admin" element={<AdminModule />} />
+
+          {/* Social Media Hub — Omnichannel Creator Engine */}
+          <Route path="/social-media" element={<SocialMediaDashboard />} />
+          <Route path="/social-media/create" element={<CreatePost />} />
+          <Route path="/social-media/calendar" element={<ContentCalendar />} />
+          <Route path="/social-media/accounts" element={<ConnectedAccounts />} />
+          <Route path="/social-media/history" element={<PostHistory />} />
+          <Route path="/social-media/analytics" element={<SocialAnalytics />} />
         </Route>
 
         <Route path="*" element={<Navigate to="/" replace />} />

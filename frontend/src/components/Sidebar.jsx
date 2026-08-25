@@ -8,7 +8,8 @@ export default function Sidebar() {
     const [openMenus, setOpenMenus] = useState({
         analytics: false,
         productionPlanning: false,
-        career: false // New state for Career dropdown
+        career: false,
+        socialMedia: false
     });
 
     const toggleMenu = (menuName) => {
@@ -26,18 +27,46 @@ export default function Sidebar() {
             
             {/* ... Other existing menus ... */}
 
-            {/* NEW: Career Module Dropdown Section */}
+            {/* Career Module Dropdown Section */}
             <div className="menu-item" onClick={() => toggleMenu('career')}>
                 <span>💼 Career Module</span> {openMenus.career ? '▼' : '▶'}
             </div>
             
             {openMenus.career && (
                 <div className="sidebar-dropdown-submenus" style={{ paddingLeft: '15px' }}>
-                    <Link to="/career/entry" className="sub-menu-item">
+                    <Link to="/career/job-entry" className="sub-menu-item">
                         ➔ Job Entry Form
                     </Link>
-                    <Link to="/career/history" className="sub-menu-item">
+                    <Link to="/career/job-history" className="sub-menu-item">
                         ➔ Application History
+                    </Link>
+                </div>
+            )}
+
+            {/* Social Media Hub Dropdown Section */}
+            <div className="menu-item" onClick={() => toggleMenu('socialMedia')}>
+                <span>🌐 Social Media Hub</span> {openMenus.socialMedia ? '▼' : '▶'}
+            </div>
+
+            {openMenus.socialMedia && (
+                <div className="sidebar-dropdown-submenus" style={{ paddingLeft: '15px' }}>
+                    <Link to="/social-media" className="sub-menu-item">
+                        ➔ Dashboard
+                    </Link>
+                    <Link to="/social-media/create" className="sub-menu-item">
+                        ➔ Create Post
+                    </Link>
+                    <Link to="/social-media/calendar" className="sub-menu-item">
+                        ➔ Content Calendar
+                    </Link>
+                    <Link to="/social-media/accounts" className="sub-menu-item">
+                        ➔ Connected Accounts
+                    </Link>
+                    <Link to="/social-media/history" className="sub-menu-item">
+                        ➔ Post History
+                    </Link>
+                    <Link to="/social-media/analytics" className="sub-menu-item">
+                        ➔ Analytics
                     </Link>
                 </div>
             )}

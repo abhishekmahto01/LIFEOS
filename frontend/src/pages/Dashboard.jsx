@@ -18,8 +18,13 @@ import {
   FilePlus2,
   Kanban,
   Clock,
+  Share2,
+  Globe,
+  PlusCircle,
+  Calendar,
 } from "lucide-react";
 import { disciplineService } from "../services/disciplineService";
+import { socialMediaService } from "../services/socialMediaService";
 import "./Dashboard.css";
 
 function Dashboard() {
@@ -27,6 +32,7 @@ function Dashboard() {
 
   const [modules, setModules] = useState([]);
   const [disciplineSummary, setDisciplineSummary] = useState(null);
+  const [socialSummary, setSocialSummary] = useState(null);
   const [loading, setLoading] = useState(true);
 
   const user = JSON.parse(localStorage.getItem("user") || "{}");
@@ -57,7 +63,31 @@ function Dashboard() {
         console.error("Discipline summary fetch error:", e);
       }
 
-      setModules(res.data);
+      // Fetch live social media summary
+      try {
+        const smRes = await socialMediaService.getDashboardSummary();
+        if (smRes.success) {
+          setSocialSummary(smRes);
+        }
+      } catch (e) {
+        console.error("Social media summary fetch error:", e);
+      }
+
+      const fetchedModules = res.data || [];
+      const hasSocial = fetchedModules.some(
+        (m) => m.route === "/social-media" || m.module_name?.toLowerCase().includes("social")
+      );
+
+      if (!hasSocial) {
+        fetchedModules.push({
+          id: "sm-hub",
+          module_name: "Social Media Hub",
+          route: "/social-media",
+          sequence_no: 4,
+        });
+      }
+
+      setModules(fetchedModules);
     } catch (error) {
       console.error("Error loading dashboard modules:", error);
     } finally {
@@ -113,6 +143,108 @@ function Dashboard() {
           const isAdmin =
             mod.module_name?.toLowerCase() === "admin" ||
             mod.route === "/admin";
+          const isSocialMedia =
+            mod.module_name?.toLowerCase().includes("social") ||
+            mod.route === "/social-media";
+
+          if (isSocialMedia) {
+            return (
+              <div
+                key={mod.id}
+                className="featured-module-card social-module-card"
+                onClick={() => navigate(mod.route)}
+              >
+                <div className="card-top-shine"></div>
+
+                {/* Header */}
+                <div className="disc-card-header">
+                  <div className="module-icon-badge social">
+                    <Share2 size={18} />
+                  </div>
+                  <div className="disc-title-group">
+                    <span className="module-kicker social">CREATOR &bull; OMNICHANNEL</span>
+                    <h3 className="disc-card-title">SOCIAL MEDIA HUB</h3>
+                  </div>
+                  <div className="disc-arrow-btn">
+                    <ArrowRight size={13} />
+                  </div>
+                </div>
+
+                {/* Streamlined Live Stats */}
+                <div className="disc-compact-stats-row">
+                  <div className="compact-stat-chip">
+                    <span className="chip-lbl">ACCOUNTS</span>
+                    <span className="chip-val magenta">
+                      {socialSummary?.metrics?.connectedPlatforms || 0}/3
+                    </span>
+                  </div>
+
+                  <div className="compact-stat-chip">
+                    <span className="chip-lbl">SCHEDULED</span>
+                    <span className="chip-val cyan">
+                      {socialSummary?.metrics?.scheduledPosts || 0}
+                    </span>
+                  </div>
+
+                  <div className="compact-stat-chip">
+                    <span className="chip-lbl">PUBLISHED</span>
+                    <span className="chip-val emerald">
+                      {socialSummary?.metrics?.totalPublished || 0}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Quick Action Chips */}
+                <div className="compact-features-grid">
+                  <div
+                    className="c-feature-chip"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      navigate("/social-media/create");
+                    }}
+                  >
+                    <PlusCircle size={12} />
+                    <span>Create Post</span>
+                  </div>
+                  <div
+                    className="c-feature-chip"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      navigate("/social-media/calendar");
+                    }}
+                  >
+                    <Calendar size={12} />
+                    <span>Calendar</span>
+                  </div>
+                  <div
+                    className="c-feature-chip"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      navigate("/social-media/accounts");
+                    }}
+                  >
+                    <Globe size={12} />
+                    <span>Accounts</span>
+                  </div>
+                  <div
+                    className="c-feature-chip"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      navigate("/social-media/analytics");
+                    }}
+                  >
+                    <TrendingUp size={12} />
+                    <span>Analytics</span>
+                  </div>
+                </div>
+
+                {/* Card Footer */}
+                <div className="disc-card-footer">
+                  <span className="social-cta-link">Open Creator Hub &rarr;</span>
+                </div>
+              </div>
+            );
+          }
 
           if (isDiscipline) {
             return (

@@ -143,9 +143,42 @@ def init_db():
                         VALUES (%s, %s, CURRENT_TIMESTAMP);
                     """, (uid, disc_mod_id))
 
+        # 5. Ensure Social Media Hub Module is in module_master
+        cur.execute("SELECT id FROM module_master WHERE module_name = 'Social Media Hub' OR route = '/social-media';")
+        sm_mod = cur.fetchone()
+        if not sm_mod:
+            cur.execute("""
+                INSERT INTO module_master (module_name, route, sequence_no, is_active, created_at)
+                VALUES ('Social Media Hub', '/social-media', 4, TRUE, CURRENT_TIMESTAMP)
+                RETURNING id;
+            """)
+            sm_mod_id = cur.fetchone()[0]
+            # Grant permission to all existing users
+            cur.execute("SELECT user_id FROM user_master;")
+            users = cur.fetchall()
+            for (uid,) in users:
+                cur.execute("""
+                    INSERT INTO user_module_permission (user_id, module_id, created_at)
+                    VALUES (%s, %s, CURRENT_TIMESTAMP)
+                    ON CONFLICT DO NOTHING;
+                """, (uid, sm_mod_id))
+        else:
+            sm_mod_id = sm_mod[0]
+            cur.execute("SELECT user_id FROM user_master;")
+            users = cur.fetchall()
+            for (uid,) in users:
+                cur.execute("""
+                    SELECT 1 FROM user_module_permission WHERE user_id = %s AND module_id = %s;
+                """, (uid, sm_mod_id))
+                if not cur.fetchone():
+                    cur.execute("""
+                        INSERT INTO user_module_permission (user_id, module_id, created_at)
+                        VALUES (%s, %s, CURRENT_TIMESTAMP);
+                    """, (uid, sm_mod_id))
+
         conn.commit()
         cur.close()
         conn.close()
-        print("✓ Database tables, indexes and Discipline module verified successfully.")
+        print("✓ Database tables, indexes, Discipline, and Social Media Hub module verified successfully.")
     except Exception as e:
         print("Warning: Database init failed or could not connect:", e)

@@ -163,6 +163,11 @@
   box-shadow: 0 12px 28px rgba(168, 85, 247, 0.1), var(--shadow-elevated);
 }
 
+.social-module-card:hover {
+  border-color: rgba(236, 72, 153, 0.45);
+  box-shadow: 0 12px 28px rgba(236, 72, 153, 0.12), var(--shadow-elevated);
+}
+
 /* ==========================================================================
    CARD HEADER
    ========================================================================== */
@@ -205,6 +210,12 @@
   color: #a855f7;
 }
 
+.module-icon-badge.social {
+  background: rgba(236, 72, 153, 0.12);
+  border: 1px solid rgba(236, 72, 153, 0.28);
+  color: #ec4899;
+}
+
 .disc-title-group {
   display: flex;
   flex-direction: column;
@@ -220,6 +231,7 @@
 .module-kicker.disc { color: #f59e0b; }
 .module-kicker.career { color: var(--accent-blue, #2563eb); }
 .module-kicker.admin { color: #a855f7; }
+.module-kicker.social { color: #ec4899; }
 
 .disc-card-title {
   margin: 1px 0 0;
@@ -263,6 +275,13 @@
   background: #a855f7;
   color: #ffffff;
   border-color: #a855f7;
+  transform: translateX(3px);
+}
+
+.social-module-card:hover .disc-arrow-btn {
+  background: #ec4899;
+  color: #ffffff;
+  border-color: #ec4899;
   transform: translateX(3px);
 }
 
@@ -310,9 +329,11 @@
 .chip-val.flame { color: #f97316; }
 .chip-val.cyan { color: #0284c7; }
 .chip-val.emerald { color: #059669; }
+.chip-val.magenta { color: #ec4899; }
 
 [data-theme="dark"] .chip-val.cyan { color: #00f2fe; }
 [data-theme="dark"] .chip-val.emerald { color: #10b981; }
+[data-theme="dark"] .chip-val.magenta { color: #f472b6; }
 
 .disc-card-progress-bar {
   display: flex;
@@ -414,8 +435,17 @@
   transition: transform 0.2s ease;
 }
 
+.social-cta-link {
+  font-family: var(--font-display, inherit);
+  font-size: 11.5px;
+  font-weight: 700;
+  color: #ec4899;
+  transition: transform 0.2s ease;
+}
+
 .featured-module-card:hover .disc-cta-link,
 .featured-module-card:hover .career-cta-link,
-.featured-module-card:hover .admin-cta-link {
+.featured-module-card:hover .admin-cta-link,
+.featured-module-card:hover .social-cta-link {
   transform: translateX(3px);
 }
