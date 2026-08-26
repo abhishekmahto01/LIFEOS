@@ -1,9 +1,13 @@
+/* ==========================================================================
+   PORTFOLIO FOOTER — UNIFIED DUAL-NEON THEME
+   ========================================================================== */
 .portfolio-footer-root {
-  background: #05080f;
-  border-top: 1px solid rgba(255, 255, 255, 0.08);
-  padding: 40px 24px;
-  color: #94a3b8;
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, monospace;
+  background: rgba(7, 6, 9, 0.9);
+  border-top: 1px solid rgba(255, 255, 255, 0.09);
+  padding: 44px 24px;
+  color: rgba(255, 255, 255, 0.65);
+  position: relative;
+  z-index: 10;
 }
 
 .footer-container {
@@ -18,8 +22,8 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
-  padding-bottom: 20px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  padding-bottom: 22px;
   flex-wrap: wrap;
   gap: 16px;
 }
@@ -27,32 +31,33 @@
 .footer-identity {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 3px;
 }
 
 .footer-name {
-  font-size: 16px;
+  font-family: 'Outfit', sans-serif;
+  font-size: 18px;
   font-weight: 900;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.04em;
   color: #ffffff;
 }
 
 .footer-role {
-  font-size: 12px;
-  color: #38bdf8;
+  font-size: 12.5px;
+  color: #ff5500;
   font-weight: 700;
 }
 
 .btn-footer-lifeos {
   display: flex;
   align-items: center;
-  gap: 6px;
-  background: rgba(15, 23, 42, 0.8);
-  border: 1px solid rgba(56, 189, 248, 0.3);
+  gap: 8px;
+  background: rgba(255, 85, 0, 0.12);
+  border: 1px solid rgba(255, 85, 0, 0.35);
   color: #ffffff;
-  padding: 8px 16px;
-  border-radius: 10px;
-  font-size: 11px;
+  padding: 10px 18px;
+  border-radius: 999px;
+  font-size: 11.5px;
   font-weight: 800;
   letter-spacing: 0.06em;
   cursor: pointer;
@@ -60,9 +65,9 @@
 }
 
 .btn-footer-lifeos:hover {
-  background: rgba(56, 189, 248, 0.15);
-  border-color: #38bdf8;
-  transform: translateY(-1px);
+  background: rgba(255, 85, 0, 0.25);
+  border-color: #ff5500;
+  transform: translateY(-2px);
 }
 
 .footer-bottom-row {
@@ -70,14 +75,14 @@
   justify-content: space-between;
   align-items: center;
   font-size: 12px;
-  color: #64748b;
+  color: rgba(255, 255, 255, 0.5);
   flex-wrap: wrap;
   gap: 12px;
 }
 
 .footer-tagline {
   margin: 0;
-  color: #cbd5e1;
+  color: rgba(255, 255, 255, 0.75);
 }
 
 .footer-copyright {

@@ -1,13 +1,18 @@
+/* ==========================================================================
+   SKILL MAP SECTION — UNIFIED DUAL-NEON THEME
+   ========================================================================== */
 .skill-map-section {
-  padding: 100px 24px;
-  background: #090e17;
+  padding: 110px 24px;
+  background: transparent;
   color: #f8fafc;
+  position: relative;
+  z-index: 10;
 }
 
 .skill-map-grid {
   display: grid;
   grid-template-columns: 1.1fr 1.1fr;
-  gap: 32px;
+  gap: 36px;
   align-items: flex-start;
 }
 
@@ -19,10 +24,12 @@
 }
 
 .tree-root-card {
-  background: rgba(2, 132, 199, 0.15);
-  border: 1px solid rgba(56, 189, 248, 0.4);
-  border-radius: 14px;
-  padding: 16px 20px;
+  background: rgba(255, 85, 0, 0.12);
+  border: 1px solid rgba(255, 85, 0, 0.35);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border-radius: 18px;
+  padding: 18px 22px;
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -31,8 +38,8 @@
 .root-indicator {
   display: flex;
   align-items: center;
-  gap: 8px;
-  font-size: 13px;
+  gap: 10px;
+  font-size: 14px;
   font-weight: 800;
   color: #ffffff;
   letter-spacing: 0.04em;
@@ -41,39 +48,42 @@
 .root-sub {
   font-size: 11px;
   font-weight: 700;
-  color: #38bdf8;
+  color: #ff5500;
 }
 
 .tree-branches-stack {
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  padding-left: 14px;
-  border-left: 2px dashed rgba(56, 189, 248, 0.25);
+  gap: 14px;
+  padding-left: 16px;
+  border-left: 2px dashed rgba(255, 85, 0, 0.3);
 }
 
 .tree-branch-card {
-  background: rgba(15, 23, 42, 0.65);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 14px;
-  padding: 16px 18px;
+  background: rgba(14, 12, 20, 0.7);
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border-radius: 18px;
+  padding: 18px 20px;
   display: flex;
   justify-content: space-between;
   align-items: center;
   cursor: pointer;
   transition: all 0.25s ease;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
 }
 
 .tree-branch-card:hover {
-  background: rgba(15, 23, 42, 0.95);
-  border-color: rgba(56, 189, 248, 0.4);
+  background: rgba(18, 15, 26, 0.92);
+  border-color: rgba(255, 85, 0, 0.45);
   transform: translateX(4px);
 }
 
 .tree-branch-card.selected {
-  background: rgba(15, 23, 42, 0.95);
-  border-color: #38bdf8;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.6), 0 0 20px rgba(56, 189, 248, 0.2);
+  background: rgba(18, 15, 26, 0.95);
+  border-color: #ff5500;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.8), 0 0 25px rgba(255, 85, 0, 0.25);
 }
 
 .branch-meta-left {
@@ -83,11 +93,11 @@
 }
 
 .branch-icon-box {
-  width: 40px;
-  height: 40px;
-  border-radius: 10px;
-  background: rgba(56, 189, 248, 0.12);
-  color: #38bdf8;
+  width: 42px;
+  height: 42px;
+  border-radius: 12px;
+  background: rgba(255, 85, 0, 0.14);
+  color: #ff5500;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -96,24 +106,24 @@
 
 .branch-title {
   margin: 0;
-  font-size: 15px;
+  font-size: 16px;
   font-weight: 800;
   color: #ffffff;
 }
 
 .branch-level-tag {
   font-size: 11px;
-  color: #94a3b8;
+  color: rgba(255, 255, 255, 0.6);
   font-weight: 600;
 }
 
 .branch-arrow {
-  color: #64748b;
+  color: rgba(255, 255, 255, 0.5);
   transition: transform 0.2s ease, color 0.2s ease;
 }
 
 .tree-branch-card.selected .branch-arrow {
-  color: #38bdf8;
+  color: #ff5500;
   transform: translateX(4px);
 }
 
@@ -124,15 +134,15 @@
 }
 
 .skill-inspector-card {
-  background: rgba(11, 17, 32, 0.88);
-  border: 1px solid rgba(56, 189, 248, 0.3);
-  border-radius: 20px;
-  padding: 28px;
+  background: rgba(14, 12, 20, 0.82);
+  border: 1px solid rgba(255, 85, 0, 0.35);
+  border-radius: 24px;
+  padding: 32px;
   display: flex;
   flex-direction: column;
-  gap: 20px;
-  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.7), 0 0 30px rgba(56, 189, 248, 0.1);
-  backdrop-filter: blur(16px);
+  gap: 22px;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.8), 0 0 30px rgba(255, 85, 0, 0.15);
+  backdrop-filter: blur(24px);
   animation: skillFadeIn 0.25s ease-out;
 }
 
@@ -145,29 +155,30 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-  padding-bottom: 12px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.09);
+  padding-bottom: 14px;
 }
 
 .si-tag {
   font-size: 11px;
   font-weight: 800;
   letter-spacing: 0.06em;
-  color: #38bdf8;
+  color: #ff5500;
 }
 
 .si-level-badge {
-  background: rgba(16, 185, 129, 0.15);
-  color: #34d399;
-  font-size: 10px;
+  background: rgba(255, 42, 95, 0.15);
+  color: #ff2a5f;
+  font-size: 10.5px;
   font-weight: 800;
-  padding: 3px 8px;
-  border-radius: 4px;
+  padding: 3px 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 42, 95, 0.3);
 }
 
 .si-title {
   margin: 0;
-  font-size: 22px;
+  font-size: 24px;
   font-weight: 900;
   color: #ffffff;
   letter-spacing: -0.02em;
@@ -178,21 +189,21 @@
   font-size: 10px;
   font-weight: 800;
   letter-spacing: 0.08em;
-  color: #64748b;
+  color: rgba(255, 255, 255, 0.55);
   margin-bottom: 8px;
 }
 
 .si-use-case-box {
-  background: rgba(255, 255, 255, 0.02);
-  border: 1px solid rgba(255, 255, 255, 0.06);
-  border-radius: 12px;
-  padding: 16px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 14px;
+  padding: 18px;
 }
 
 .si-use-case-desc {
   margin: 0;
-  font-size: 13px;
-  color: #cbd5e1;
+  font-size: 13.5px;
+  color: rgba(255, 255, 255, 0.85);
   line-height: 1.6;
 }
 
@@ -207,23 +218,23 @@
   display: flex;
   align-items: center;
   gap: 6px;
-  background: rgba(56, 189, 248, 0.1);
-  border: 1px solid rgba(56, 189, 248, 0.25);
-  color: #7dd3fc;
-  font-size: 11px;
-  font-weight: 700;
-  padding: 5px 10px;
-  border-radius: 6px;
-}
-
-.si-proj-tag {
-  background: rgba(16, 185, 129, 0.12);
-  border: 1px solid rgba(16, 185, 129, 0.3);
-  color: #6ee7b7;
+  background: rgba(255, 85, 0, 0.1);
+  border: 1px solid rgba(255, 85, 0, 0.25);
+  color: #ffaa80;
   font-size: 11px;
   font-weight: 700;
   padding: 5px 12px;
-  border-radius: 6px;
+  border-radius: 999px;
+}
+
+.si-proj-tag {
+  background: rgba(192, 38, 211, 0.15);
+  border: 1px solid rgba(192, 38, 211, 0.35);
+  color: #e879f9;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 5px 14px;
+  border-radius: 999px;
 }
 
 @media (max-width: 900px) {

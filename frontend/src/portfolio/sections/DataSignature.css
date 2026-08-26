@@ -1,41 +1,46 @@
+/* ==========================================================================
+   DATA SIGNATURE SECTION — UNIFIED DUAL-NEON THEME
+   ========================================================================== */
 .data-signature-section {
-  padding: 100px 24px;
-  background: #090e17;
+  padding: 110px 24px;
+  background: transparent;
   color: #f8fafc;
   position: relative;
+  z-index: 10;
 }
 
 .section-container {
-  max-width: 1140px;
+  max-width: 1200px;
   margin: 0 auto;
   display: flex;
   flex-direction: column;
-  gap: 32px;
+  gap: 36px;
 }
 
 .section-header-tag {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 800;
   letter-spacing: 0.1em;
-  color: #38bdf8;
+  color: #ff5500;
   text-transform: uppercase;
 }
 
 .section-title {
   margin: -16px 0 0;
-  font-size: clamp(32px, 5vw, 48px);
+  font-size: clamp(32px, 4.5vw, 48px);
   font-weight: 900;
   letter-spacing: -0.03em;
   color: #ffffff;
+  text-shadow: 0 4px 20px rgba(0, 0, 0, 0.8);
 }
 
 .section-lead {
   margin: -16px 0 0;
   font-size: 17px;
-  color: #94a3b8;
+  color: rgba(255, 255, 255, 0.72);
   max-width: 720px;
   line-height: 1.6;
 }
@@ -43,25 +48,28 @@
 /* 4 Metrics */
 .signature-metrics-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-  gap: 16px;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 20px;
 }
 
 .sig-metric-card {
-  background: rgba(15, 23, 42, 0.7);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 16px;
-  padding: 22px 20px;
+  background: rgba(14, 12, 20, 0.7);
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border-radius: 20px;
+  padding: 24px 22px;
   display: flex;
   flex-direction: column;
   gap: 12px;
   transition: all 0.25s ease;
+  box-shadow: 0 14px 40px rgba(0, 0, 0, 0.6);
 }
 
 .sig-metric-card:hover {
-  border-color: rgba(56, 189, 248, 0.4);
-  transform: translateY(-2px);
-  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
+  border-color: rgba(255, 85, 0, 0.45);
+  transform: translateY(-3px);
+  box-shadow: 0 20px 50px rgba(255, 85, 0, 0.2);
 }
 
 .sig-metric-top {
@@ -73,17 +81,18 @@
 .sig-metric-lbl {
   font-size: 11px;
   font-weight: 800;
-  color: #64748b;
-  letter-spacing: 0.04em;
+  color: rgba(255, 255, 255, 0.6);
+  letter-spacing: 0.05em;
 }
 
 .sig-metric-tag {
   font-size: 10px;
   font-weight: 700;
-  color: #10b981;
-  background: rgba(16, 185, 129, 0.12);
-  padding: 2px 6px;
-  border-radius: 4px;
+  color: #ff5500;
+  background: rgba(255, 85, 0, 0.14);
+  padding: 3px 8px;
+  border-radius: 6px;
+  border: 1px solid rgba(255, 85, 0, 0.25);
 }
 
 .sig-metric-main {
@@ -93,36 +102,39 @@
 }
 
 .sig-metric-val {
-  font-size: 36px;
+  font-size: 38px;
   font-weight: 900;
   color: #ffffff;
   letter-spacing: -0.03em;
 }
 
 .sig-metric-unit {
-  font-size: 13px;
-  color: #94a3b8;
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.6);
   font-weight: 600;
 }
 
 /* Skill Progress Meters Box */
 .signature-meters-box {
-  background: rgba(15, 23, 42, 0.6);
-  border: 1px solid rgba(56, 189, 248, 0.2);
-  border-radius: 18px;
+  background: rgba(14, 12, 20, 0.72);
+  border: 1px solid rgba(255, 85, 0, 0.25);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-radius: 24px;
   overflow: hidden;
-  padding: 28px;
+  padding: 32px;
   display: flex;
   flex-direction: column;
-  gap: 24px;
+  gap: 28px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.7);
 }
 
 .meters-box-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-  padding-bottom: 14px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  padding-bottom: 16px;
   flex-wrap: wrap;
   gap: 10px;
 }
@@ -131,23 +143,23 @@
   display: flex;
   align-items: center;
   gap: 10px;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 800;
   letter-spacing: 0.06em;
   color: #f1f5f9;
 }
 
 .meters-audit-tag {
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 800;
   letter-spacing: 0.08em;
-  color: #38bdf8;
+  color: #ff5500;
 }
 
 .meters-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(380px, 1fr));
-  gap: 24px;
+  grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+  gap: 26px;
 }
 
 .meter-row-item {
@@ -177,16 +189,17 @@
 .meter-tier-badge {
   font-size: 10px;
   font-weight: 700;
-  color: #38bdf8;
-  background: rgba(56, 189, 248, 0.12);
-  padding: 2px 6px;
+  color: #ff5500;
+  background: rgba(255, 85, 0, 0.12);
+  padding: 2px 7px;
   border-radius: 4px;
+  border: 1px solid rgba(255, 85, 0, 0.2);
 }
 
 .meter-percent-val {
   font-size: 14px;
   font-weight: 900;
-  color: #38bdf8;
+  color: #ff5500;
   font-family: "JetBrains Mono", monospace;
 }
 
@@ -194,21 +207,21 @@
   width: 100%;
   height: 8px;
   background: rgba(255, 255, 255, 0.08);
-  border-radius: 4px;
+  border-radius: 999px;
   overflow: hidden;
 }
 
 .meter-fill {
   height: 100%;
-  background: linear-gradient(90deg, #0284c7 0%, #38bdf8 60%, #10b981 100%);
-  border-radius: 4px;
+  background: linear-gradient(90deg, #c026d3 0%, #ff2a5f 50%, #ff5500 100%);
+  border-radius: 999px;
   transition: width 0.6s ease;
-  box-shadow: 0 0 10px rgba(56, 189, 248, 0.5);
+  box-shadow: 0 0 12px rgba(255, 85, 0, 0.6);
 }
 
 .meter-desc {
   font-size: 12px;
-  color: #64748b;
+  color: rgba(255, 255, 255, 0.6);
   line-height: 1.4;
 }
 

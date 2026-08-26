@@ -1,35 +1,163 @@
 /* ========================================================================= */
-/* ABHISHEK — PORTFOLIO MASTER THEME & RESET */
+/* ABHISHEK — FOLIOBLOX PORTFOLIO MASTER THEME & GLOBAL MOTION STAGE        */
 /* ========================================================================= */
+
+:root {
+  --bg-obsidian: #070609;
+  --neon-orange: #ff5500;
+  --neon-crimson: #ff2a5f;
+  --neon-magenta: #c026d3;
+  --neon-purple: #9333ea;
+  --text-white: #ffffff;
+  --text-dim: rgba(255, 255, 255, 0.7);
+  --glass-bg: rgba(14, 12, 20, 0.65);
+  --glass-border: rgba(255, 255, 255, 0.08);
+}
+
 .portfolio-master-root {
   min-height: 100vh;
-  background-color: #07090e;
+  background-color: var(--bg-obsidian);
   color: #f8fafc;
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, "Helvetica Neue", sans-serif;
+  font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   overflow-x: hidden;
   position: relative;
-  selection-background-color: rgba(56, 189, 248, 0.3);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 .portfolio-master-root ::selection {
-  background: rgba(56, 189, 248, 0.3);
+  background: rgba(255, 85, 0, 0.4);
   color: #ffffff;
 }
 
+/* ========================================================================= */
+/* PERSISTENT GLOBAL PHOTO MOTION & DUAL-NEON AMBIENCE LAYER                 */
+/* ========================================================================= */
+.global-photo-motion-stage {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100vh;
+  overflow: hidden;
+  pointer-events: none;
+  z-index: 1;
+}
+
+/* Left Studio Magenta Ambient Glow */
+.global-ambient-magenta {
+  position: absolute;
+  left: -15vw;
+  top: 15vh;
+  width: 60vw;
+  height: 60vh;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(192, 38, 211, 0.4) 0%, rgba(147, 51, 234, 0.18) 50%, transparent 80%);
+  filter: blur(120px);
+  transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* Right Studio Crimson Ambient Glow */
+.global-ambient-crimson {
+  position: absolute;
+  right: -15vw;
+  top: 10vh;
+  width: 65vw;
+  height: 65vh;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(255, 42, 95, 0.45) 0%, rgba(255, 85, 0, 0.22) 50%, transparent 80%);
+  filter: blur(120px);
+  transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* Continuous On-Scroll Motion Actor */
+.global-photo-actor {
+  position: absolute;
+  inset: 0;
+  width: 100vw;
+  height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.15s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.3s ease;
+  will-change: transform, opacity;
+}
+
+.global-portrait-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center 30%;
+  display: block;
+  filter: contrast(1.1) brightness(0.95);
+}
+
+/* Global Vignette Blend */
+.global-photo-vignette {
+  position: absolute;
+  inset: 0;
+  background: 
+    linear-gradient(to right, rgba(7, 6, 9, 0.94) 0%, rgba(7, 6, 9, 0.25) 30%, rgba(7, 6, 9, 0.1) 50%, rgba(7, 6, 9, 0.25) 70%, rgba(7, 6, 9, 0.94) 100%),
+    linear-gradient(to top, rgba(7, 6, 9, 0.98) 0%, rgba(7, 6, 9, 0.5) 20%, transparent 50%),
+    linear-gradient(to bottom, rgba(7, 6, 9, 0.9) 0%, transparent 20%);
+  pointer-events: none;
+}
+
+.global-mesh-overlay {
+  position: absolute;
+  inset: 0;
+  opacity: 0.025;
+  background-image: radial-gradient(rgba(255, 255, 255, 0.3) 1px, transparent 0);
+  background-size: 28px 28px;
+  pointer-events: none;
+}
+
+/* Main Content Wrapper */
 .portfolio-main-content {
+  position: relative;
+  z-index: 5;
   display: flex;
   flex-direction: column;
-  position: relative;
-  z-index: 10;
+  width: 100%;
+}
+
+/* Custom Sleek Scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #070609;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #252230;
+  border-radius: 999px;
+  border: 2px solid #070609;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #ff5500;
 }
 
 /* Base Utility Tokens */
+.text-orange {
+  color: #ff5500 !important;
+}
+
+.text-magenta {
+  color: #c026d3 !important;
+}
+
+.text-crimson {
+  color: #ff2a5f !important;
+}
+
 .text-cyan {
-  color: #38bdf8 !important;
+  color: #ff5500 !important; /* Unified to theme */
 }
 
 .text-emerald {
-  color: #34d399 !important;
+  color: #ffaa80 !important; /* Unified to warm theme */
 }
 
 .text-amber {
@@ -43,6 +171,7 @@
 /* Smooth Scrolling */
 html {
   scroll-behavior: smooth;
+  background-color: #070609;
 }
 
 @media (prefers-reduced-motion: reduce) {

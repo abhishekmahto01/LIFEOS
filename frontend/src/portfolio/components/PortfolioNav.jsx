@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Zap, Menu, X, ArrowUpRight, Activity } from "lucide-react";
+import { Zap, Menu, X, ArrowRight } from "lucide-react";
 import "./PortfolioNav.css";
 
 function PortfolioNav({ onOpenLifeOS }) {
@@ -8,23 +8,20 @@ function PortfolioNav({ onOpenLifeOS }) {
   const [mobileOpen, setMobileOpen] = useState(false);
 
   const navLinks = [
-    { id: "hero", label: "CONTROL ROOM" },
-    { id: "my-data", label: "MY DATA" },
-    { id: "journey", label: "JOURNEY" },
-    { id: "data-lab", label: "DATA LAB" },
-    { id: "how-i-think", label: "HOW I THINK" },
-    { id: "skills", label: "SKILLS" },
-    { id: "lifeos", label: "LIFEOS" },
-    { id: "contact", label: "CONTACT" },
+    { id: "hero-motion-container", label: "Home" },
+    { id: "my-data", label: "About" },
+    { id: "data-lab", label: "Projects" },
+    { id: "how-i-think", label: "Workflow" },
+    { id: "consultation", label: "Consultation" },
+    { id: "contact", label: "Contact" },
   ];
 
   useEffect(() => {
     const handleScroll = () => {
-      setScrolled(window.scrollY > 40);
+      setScrolled(window.scrollY > 30);
 
-      // Scroll spy
       const sections = navLinks.map((l) => document.getElementById(l.id)).filter(Boolean);
-      const scrollPos = window.scrollY + 200;
+      const scrollPos = window.scrollY + 220;
 
       for (let i = sections.length - 1; i >= 0; i--) {
         if (sections[i].offsetTop <= scrollPos) {
@@ -34,7 +31,7 @@ function PortfolioNav({ onOpenLifeOS }) {
       }
     };
 
-    window.addEventListener("scroll", handleScroll);
+    window.addEventListener("scroll", handleScroll, { passive: true });
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
@@ -42,7 +39,7 @@ function PortfolioNav({ onOpenLifeOS }) {
     setMobileOpen(false);
     const element = document.getElementById(id);
     if (element) {
-      const offset = 80;
+      const offset = 70;
       const bodyRect = document.body.getBoundingClientRect().top;
       const elementRect = element.getBoundingClientRect().top;
       const elementPosition = elementRect - bodyRect;
@@ -58,21 +55,14 @@ function PortfolioNav({ onOpenLifeOS }) {
   return (
     <header className={`portfolio-nav-bar ${scrolled ? "nav-scrolled" : ""}`}>
       <div className="nav-container">
-        {/* Brand / Telemetry Identity */}
-        <div className="nav-brand-group" onClick={() => scrollToSection("hero")}>
-          <div className="brand-logo-hex">
-            <span>A</span>
-          </div>
-          <div className="brand-meta">
-            <span className="brand-name">ABHISHEK</span>
-            <div className="brand-telemetry-status">
-              <span className="pulse-beacon"></span>
-              <span className="status-label">DATA ANALYST → DATA SCIENTIST</span>
-            </div>
-          </div>
+        {/* Brand Mark Matching Reference Image 1 */}
+        <div className="nav-brand-group" onClick={() => scrollToSection("hero-motion-container")}>
+          <span className="brand-logo-text">Folioblox</span>
+          <span className="brand-dot"></span>
+          <span className="brand-sub-badge">Abhishek</span>
         </div>
 
-        {/* Desktop Nav Links */}
+        {/* Centered Desktop Nav Menu Matching Reference Image 1 */}
         <nav className="desktop-nav-menu">
           {navLinks.map((item) => (
             <button
@@ -85,17 +75,28 @@ function PortfolioNav({ onOpenLifeOS }) {
           ))}
         </nav>
 
-        {/* Action Button: Enter LifeOS */}
+        {/* Right CTA Matching Reference Image 1: White Pill with Orange Arrow Circle */}
         <div className="nav-actions">
           <button
-            className="btn-nav-lifeos"
-            data-cursor="lifeos"
-            onClick={onOpenLifeOS}
-            title="Launch Personal Operating System"
+            className="btn-nav-touch-pill"
+            onClick={() => scrollToSection("consultation")}
+            title="Book a strategic consultation"
+            data-cursor="pointer"
           >
-            <Zap size={14} className="nav-bolt" />
-            <span>ENTER LIFEOS</span>
-            <ArrowUpRight size={14} />
+            <span>Get in touch</span>
+            <span className="nav-orange-arrow">
+              <ArrowRight size={14} />
+            </span>
+          </button>
+
+          <button
+            className="btn-nav-lifeos-mini"
+            onClick={onOpenLifeOS}
+            title="Launch LifeOS Platform"
+            data-cursor="lifeos"
+          >
+            <Zap size={14} className="text-orange" />
+            <span className="lifeos-text">LifeOS</span>
           </button>
 
           {/* Mobile Menu Toggle */}
@@ -125,10 +126,13 @@ function PortfolioNav({ onOpenLifeOS }) {
           </div>
 
           <div className="mobile-nav-footer">
+            <button className="btn-mobile-touch" onClick={() => scrollToSection("consultation")}>
+              <span>Get in touch</span>
+              <ArrowRight size={16} />
+            </button>
             <button className="btn-mobile-lifeos" onClick={onOpenLifeOS}>
               <Zap size={16} />
               <span>ENTER LIFEOS PLATFORM</span>
-              <ArrowUpRight size={16} />
             </button>
           </div>
         </div>
@@ -138,3 +142,4 @@ function PortfolioNav({ onOpenLifeOS }) {
 }
 
 export default PortfolioNav;
+

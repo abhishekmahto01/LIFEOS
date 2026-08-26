@@ -1,0 +1,305 @@
+/* ==========================================================================
+   HERO FOLIO SECTION — FOLIOBLOX EXACT FOREGROUND LAYOUT
+   ========================================================================== */
+
+.hero-folio-section {
+  position: relative;
+  width: 100%;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 120px 5vw 36px 5vw;
+  box-sizing: border-box;
+  background: transparent;
+  z-index: 10;
+}
+
+.hero-folio-container {
+  max-width: 1520px;
+  margin: 0 auto;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  min-height: calc(100vh - 156px);
+}
+
+/* --------------------------------------------------------------------------
+   MAIN CONTENT GRID
+   -------------------------------------------------------------------------- */
+.hero-folio-content-grid {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4vw;
+  flex: 1;
+  width: 100%;
+  padding-top: 5vh;
+}
+
+/* LEFT COLUMN */
+.hero-left-column {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  max-width: 560px;
+  z-index: 12;
+}
+
+.hero-greeting-tag {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.greeting-text {
+  color: #ff5500;
+  font-family: 'Outfit', sans-serif;
+  font-size: 1.3rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.role-switch-pills {
+  display: flex;
+  gap: 4px;
+  background: rgba(255, 255, 255, 0.08);
+  padding: 3px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  backdrop-filter: blur(12px);
+}
+
+.role-mini-pill {
+  background: transparent;
+  border: none;
+  color: rgba(255, 255, 255, 0.65);
+  font-size: 0.72rem;
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.role-mini-pill.active {
+  background: rgba(255, 255, 255, 0.22);
+  color: #ffffff;
+}
+
+.hero-main-title {
+  font-family: 'Outfit', 'Plus Jakarta Sans', sans-serif;
+  font-size: clamp(3.2rem, 5.8vw, 5.4rem);
+  font-weight: 800;
+  line-height: 0.96;
+  letter-spacing: -0.04em;
+  color: #ffffff;
+  margin: 0 0 18px 0;
+  text-shadow: 0 4px 30px rgba(0, 0, 0, 0.85);
+}
+
+.hero-sub-statement {
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  font-size: 1.05rem;
+  line-height: 1.5;
+  color: rgba(255, 255, 255, 0.75);
+  max-width: 360px;
+  margin: 0 0 32px 0;
+  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.6);
+}
+
+.hero-cta-button-group {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+/* White Pill Button Matching Reference Image 1 */
+.btn-hero-orange-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  background: #ffffff;
+  color: #0c0a12;
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  font-size: 0.98rem;
+  font-weight: 700;
+  padding: 8px 10px 8px 24px;
+  border-radius: 999px;
+  text-decoration: none;
+  box-shadow: 0 10px 30px rgba(255, 85, 0, 0.35);
+  transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.25s ease;
+}
+
+.btn-hero-orange-pill:hover {
+  transform: translateY(-2px) scale(1.02);
+  box-shadow: 0 14px 40px rgba(255, 85, 0, 0.55);
+}
+
+.orange-arrow-circle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: #ff5500;
+  color: #ffffff;
+  box-shadow: 0 0 14px rgba(255, 85, 0, 0.7);
+  transition: transform 0.25s ease;
+}
+
+.btn-hero-orange-pill:hover .orange-arrow-circle {
+  transform: rotate(45deg);
+}
+
+.btn-hero-glass-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  color: rgba(255, 255, 255, 0.9);
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  font-size: 0.92rem;
+  font-weight: 600;
+  padding: 12px 22px;
+  border-radius: 999px;
+  cursor: pointer;
+  backdrop-filter: blur(12px);
+  transition: all 0.25s ease;
+}
+
+.btn-hero-glass-link:hover {
+  background: rgba(255, 255, 255, 0.16);
+  color: #ffffff;
+  border-color: rgba(255, 255, 255, 0.3);
+}
+
+/* RIGHT COLUMN */
+.hero-right-column {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  text-align: right;
+  max-width: 440px;
+  z-index: 12;
+}
+
+.hero-quote-block {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+}
+
+.hero-philosophy-quote {
+  font-family: 'Outfit', 'Plus Jakarta Sans', sans-serif;
+  font-size: clamp(2rem, 3.2vw, 3rem);
+  font-weight: 800;
+  line-height: 1.1;
+  letter-spacing: -0.03em;
+  color: #ffffff;
+  margin: 0 0 14px 0;
+  text-shadow: 0 4px 30px rgba(0, 0, 0, 0.9);
+}
+
+.hero-philosophy-sub {
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  font-size: 0.98rem;
+  line-height: 1.6;
+  color: rgba(255, 255, 255, 0.72);
+  margin: 0;
+  max-width: 380px;
+  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.7);
+}
+
+/* --------------------------------------------------------------------------
+   BOTTOM PILLAR BAR (#01, #02, #03, #04 Strip)
+   -------------------------------------------------------------------------- */
+.hero-bottom-pillars-bar {
+  position: relative;
+  z-index: 15;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 20px;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  padding-top: 22px;
+  width: 100%;
+}
+
+.pillar-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  white-space: nowrap;
+}
+
+.pillar-number {
+  font-family: 'Outfit', sans-serif;
+  font-size: 1.05rem;
+  font-weight: 800;
+  color: #ff5500;
+  letter-spacing: -0.01em;
+}
+
+.pillar-title {
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  font-size: 0.92rem;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.88);
+}
+
+/* --------------------------------------------------------------------------
+   RESPONSIVE BREAKPOINTS
+   -------------------------------------------------------------------------- */
+@media (max-width: 1024px) {
+  .hero-folio-content-grid {
+    flex-direction: column;
+    justify-content: center;
+    align-items: flex-start;
+    gap: 32px;
+  }
+
+  .hero-right-column {
+    align-items: flex-start;
+    text-align: left;
+    max-width: 100%;
+  }
+
+  .hero-quote-block {
+    align-items: flex-start;
+  }
+
+  .hero-bottom-pillars-bar {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 768px) {
+  .hero-folio-section {
+    padding: 100px 5vw 20px 5vw;
+  }
+
+  .hero-main-title {
+    font-size: 2.8rem;
+  }
+
+  .hero-sub-statement {
+    font-size: 0.95rem;
+    margin-bottom: 20px;
+  }
+
+  .hero-bottom-pillars-bar {
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    padding-top: 14px;
+  }
+
+  .pillar-title {
+    font-size: 0.78rem;
+  }
+}
