@@ -1,0 +1,24 @@
+/* ==========================================================================
+   CANVAS FRAME SEQUENCE — HIGH PERFORMANCE 240-FRAME SCROLL STYLING
+   ========================================================================== */
+
+.canvas-frame-sequence-wrapper {
+  position: absolute;
+  inset: 0;
+  width: 100vw;
+  height: 100vh;
+  overflow: hidden;
+  pointer-events: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2;
+}
+
+.frame-sequence-canvas {
+  position: absolute;
+  inset: 0;
+  width: 100vw;
+  height: 100vh;
+  display: block;
+}

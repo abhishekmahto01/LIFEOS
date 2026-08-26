@@ -3,6 +3,7 @@ import PortfolioNav from "./components/PortfolioNav";
 import CustomCursor from "./components/CustomCursor";
 import LifeOSTransitionModal from "./components/LifeOSTransitionModal";
 import ProjectCaseStudyModal from "./components/ProjectCaseStudyModal";
+import CanvasFrameSequence from "./components/CanvasFrameSequence";
 
 import HeroFolioMotion from "./sections/HeroFolioMotion";
 import ConsultationMatrixSection from "./sections/ConsultationMatrixSection";
@@ -141,21 +142,16 @@ function PortfolioPage() {
           }}
         />
 
-        {/* The Continuous Motion Portrait Photo (Glides Left to Right as you scroll) */}
-        <div 
-          className="global-photo-actor"
-          style={{
-            transform: `translate3d(calc(${faceTranslateX}vw + ${mousePos.x * 0.4}px), ${mousePos.y * 0.3}px, 0) scale(${faceScale})`,
-            opacity: faceOpacity,
-          }}
-        >
-          <img 
-            src="/portfolio/user_portrait.jpg" 
-            alt="Abhishek - Portrait Background"
-            className="global-portrait-image"
-          />
-          <div className="global-photo-vignette" />
-        </div>
+        {/* 240-Frame 3D Scrubbed Motion Canvas & Ambient Vignette */}
+        <CanvasFrameSequence
+          scrollProgress={globalScrollProgress}
+          totalFrames={240}
+          faceTranslateX={faceTranslateX}
+          faceScale={faceScale}
+          faceOpacity={faceOpacity}
+          mousePos={mousePos}
+        />
+        <div className="global-photo-vignette" />
 
         {/* Global Dark Grid Mesh */}
         <div className="global-mesh-overlay" />

@@ -55,9 +55,9 @@ function PortfolioNav({ onOpenLifeOS }) {
   return (
     <header className={`portfolio-nav-bar ${scrolled ? "nav-scrolled" : ""}`}>
       <div className="nav-container">
-        {/* Brand Mark Matching Reference Image 1 */}
+        {/* Brand Mark */}
         <div className="nav-brand-group" onClick={() => scrollToSection("hero-motion-container")}>
-          <span className="brand-logo-text">Folioblox</span>
+          <span className="brand-logo-text">Portfolio</span>
           <span className="brand-dot"></span>
           <span className="brand-sub-badge">Abhishek</span>
         </div>
