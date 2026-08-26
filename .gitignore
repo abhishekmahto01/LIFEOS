@@ -16,3 +16,7 @@ yarn-error.log*
 .idea/
 .DS_Store
 *.swp
+
+# Heavy Frame Assets & Sequences
+frontend/public/portfolio/frames/
+frontend/public/portfolio/angles/
