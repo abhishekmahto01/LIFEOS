@@ -34,8 +34,6 @@ import {
   PieChart,
 } from "lucide-react";
 import { disciplineService } from "../services/disciplineService";
-import { useTheme } from "../context/ThemeContext";
-import ThemeToggle from "../components/ThemeToggle";
 import riderBg from "../assets/images/cinematic-rider.jpg";
 import "./DisciplineDashboard.css";
 
@@ -276,7 +274,6 @@ function DisciplineDashboard() {
         </div>
 
         <div className="header-right-col">
-          <ThemeToggle />
           <div className="header-stat-pill">
             <Flame size={15} className="text-orange" />
             <span>{matrixData?.current_streak || 0} DAY STREAK</span>
