@@ -25,7 +25,8 @@ class Config:
     # Fernet Authenticated Encryption Key for OAuth Tokens at Rest
     ENCRYPTION_KEY = os.getenv("ENCRYPTION_KEY", "")
 
-    # CORS Settings
+    # Frontend URL & CORS Settings
+    FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:5173").rstrip("/")
     CORS_ALLOWED_ORIGINS = [
         origin.strip() for origin in os.getenv(
             "CORS_ALLOWED_ORIGINS",
@@ -37,6 +38,7 @@ class Config:
     DB_HOST = os.getenv("DB_HOST", "localhost")
     DB_PORT = os.getenv("DB_PORT", "5432")
     DB_NAME = os.getenv("DB_NAME", "lifeos")
+    TEST_DB_NAME = os.getenv("TEST_DB_NAME", "lifeos_test")
     DB_USER = os.getenv("DB_USER", "postgres")
     DB_PASSWORD = os.getenv("DB_PASSWORD", "")
 

@@ -34,15 +34,8 @@ export const socialMediaService = {
 
   // 2. Get Connected Social Accounts
   getAccounts: async () => {
-    try {
-      const response = await api.get("/api/social-media/accounts");
-      return response.data;
-    } catch (err) {
-      return {
-        success: true,
-        accounts: [],
-      };
-    }
+    const response = await api.get("/api/social-media/accounts");
+    return response.data;
   },
 
   // 3. Connect Account OAuth Start URLs

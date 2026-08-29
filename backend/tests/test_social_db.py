@@ -8,6 +8,13 @@ backend_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if backend_dir not in sys.path:
     sys.path.insert(0, backend_dir)
 
+# Enforce isolated test database
+test_db = os.getenv("TEST_DB_NAME", "lifeos_test")
+prod_db = os.getenv("PROD_DB_NAME", "lifeos")
+if test_db == prod_db or test_db == "lifeos":
+    raise RuntimeError(f"SAFETY CHECK FAILED: Refusing to run tests against primary database '{prod_db}'. Set TEST_DB_NAME='lifeos_test'.")
+os.environ["DB_NAME"] = test_db
+
 from database.db import get_connection, init_db
 from database.social_media_schema import create_social_media_schema
 from utils.crypto import encrypt_token, decrypt_token

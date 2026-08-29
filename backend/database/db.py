@@ -31,6 +31,35 @@ def init_db():
         conn = get_connection()
         cur = conn.cursor()
 
+        # 0. User & Auth Master Tables
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS user_master (
+                user_id SERIAL PRIMARY KEY,
+                user_name VARCHAR(100) UNIQUE NOT NULL,
+                password TEXT NOT NULL,
+                is_active BOOLEAN DEFAULT TRUE,
+                created_at TIMESTAMP WITHOUT TIME ZONE DEFAULT CURRENT_TIMESTAMP
+            );
+
+            CREATE TABLE IF NOT EXISTS module_master (
+                id SERIAL PRIMARY KEY,
+                module_name VARCHAR(100) UNIQUE NOT NULL,
+                route VARCHAR(100) NOT NULL,
+                sequence_no INTEGER DEFAULT 1,
+                is_active BOOLEAN DEFAULT TRUE,
+                created_by INTEGER,
+                created_at TIMESTAMP WITHOUT TIME ZONE DEFAULT CURRENT_TIMESTAMP
+            );
+
+            CREATE TABLE IF NOT EXISTS user_module_permission (
+                id SERIAL PRIMARY KEY,
+                user_id INTEGER REFERENCES user_master(user_id) ON DELETE CASCADE,
+                module_id INTEGER REFERENCES module_master(id) ON DELETE CASCADE,
+                created_at TIMESTAMP WITHOUT TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+                CONSTRAINT uq_user_module UNIQUE (user_id, module_id)
+            );
+        """)
+
         # 1. Master Table: job_apply_mt
         cur.execute("""
             CREATE TABLE IF NOT EXISTS job_apply_mt (
@@ -65,14 +94,14 @@ def init_db():
 
         for col_name, col_type in enhanced_columns:
             cur.execute(f"""
-                DO $$ 
-                BEGIN 
+                DO $$
+                BEGIN
                     IF NOT EXISTS (
-                        SELECT 1 FROM information_schema.columns 
+                        SELECT 1 FROM information_schema.columns
                         WHERE table_name='job_apply_mt' AND column_name='{col_name}'
-                    ) THEN 
-                        ALTER TABLE job_apply_mt ADD COLUMN {col_name} {col_type}; 
-                    END IF; 
+                    ) THEN
+                        ALTER TABLE job_apply_mt ADD COLUMN {col_name} {col_type};
+                    END IF;
                 END $$;
             """)
 
