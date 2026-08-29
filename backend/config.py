@@ -42,8 +42,15 @@ class Config:
 
     # Temporary Video Upload Pipeline Settings
     TEMP_UPLOAD_DIR = os.path.join(backend_dir, os.getenv("TEMP_UPLOAD_DIR", "temp_uploads"))
-    MAX_CONTENT_LENGTH_MB = int(os.getenv("MAX_CONTENT_LENGTH_MB", 500))
-    TEMP_FILE_RETENTION_HOURS = int(os.getenv("TEMP_FILE_RETENTION_HOURS", 24))
+    MAX_VIDEO_SIZE_MB = max(1, int(os.getenv("MAX_VIDEO_SIZE_MB", "500")))
+    MAX_THUMBNAIL_SIZE_MB = max(1, int(os.getenv("MAX_THUMBNAIL_SIZE_MB", "10")))
+    # Flask Request Size Protection (in bytes)
+    MAX_CONTENT_LENGTH = (MAX_VIDEO_SIZE_MB + MAX_THUMBNAIL_SIZE_MB + 10) * 1024 * 1024
+
+    # Maximum Temporary File Retention (Strictly capped between 1 and 24 hours)
+    raw_ttl = int(os.getenv("TEMP_FILE_TTL_HOURS", os.getenv("TEMP_FILE_RETENTION_HOURS", "24")))
+    TEMP_FILE_TTL_HOURS = min(max(raw_ttl, 1), 24)
+    TEMP_FILE_RETENTION_HOURS = TEMP_FILE_TTL_HOURS
 
     # Google / YouTube OAuth
     GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID", "")
