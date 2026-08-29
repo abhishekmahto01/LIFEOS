@@ -1,7 +1,5 @@
-// file: src/components/Login.js (or similar login component)
-
 import React, { useState } from 'react';
-import axios from 'axios';
+import authService from '../services/authService';
 
 export default function Login({ setAuthToken }) {
     const [credentials, setCredentials] = useState({ username: '', password: '' });
@@ -14,21 +12,15 @@ export default function Login({ setAuthToken }) {
     const handleLogin = async (e) => {
         e.preventDefault();
         try {
-            // 1. Clear any old tokens out of storage just in case
-            localStorage.removeItem('token');
-            
-            // 2. Make the clean login request
-            const response = await axios.post('/api/login', credentials);
-            
-            if (response.data.token) {
-                // 3. Save new token and update app state
-                localStorage.setItem('token', response.data.token);
-                setAuthToken(response.data.token);
-                window.location.href = '/dashboard'; // Redirect cleanly
+            const data = await authService.login(credentials.username, credentials.password);
+            if (data.success && data.token) {
+                if (setAuthToken) setAuthToken(data.token);
+                window.location.href = '/dashboard';
+            } else {
+                setError(data.message || 'Invalid username or password.');
             }
         } catch (err) {
-            setError('Invalid username or password. Please try again.');
-            console.error('Login Error:', err);
+            setError(err.response?.data?.message || 'Invalid username or password. Please try again.');
         }
     };
 

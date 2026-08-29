@@ -18,6 +18,17 @@ def calculate_score(gym, job, study, project):
     return round((completed / 4.0) * 100, 2)
 
 def get_user_id():
+    auth_header = request.headers.get("Authorization")
+    if auth_header and auth_header.startswith("Bearer "):
+        try:
+            from utils.jwt_handler import decode_token
+            token = auth_header.split(" ")[1]
+            payload = decode_token(token)
+            if "user_id" in payload:
+                return int(payload["user_id"])
+        except Exception:
+            pass
+
     uid = request.args.get('user_id')
     if not uid:
         json_data = request.get_json(silent=True)

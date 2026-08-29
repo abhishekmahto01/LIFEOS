@@ -1,9 +1,12 @@
 import { useState, useEffect } from "react";
 import { useNavigate, Outlet } from "react-router-dom";
 import ThemeToggle from "./ThemeToggle";
+import { useAuth } from "../context/AuthContext";
+import authService from "../services/authService";
 
 function MainLayout() {
   const navigate = useNavigate();
+  const { user: authUser, logout } = useAuth();
 
   const [isModalOpen, setIsModalOpen] = useState(false);
 
@@ -15,7 +18,7 @@ function MainLayout() {
 
   const [currentTime, setCurrentTime] = useState("");
 
-  const user = JSON.parse(localStorage.getItem("user") || "{}");
+  const user = authUser || JSON.parse(localStorage.getItem("user") || "{}");
 
   useEffect(() => {
     const updateTime = () => {
@@ -38,11 +41,11 @@ function MainLayout() {
   }, []);
 
   const handleLogout = () => {
-    localStorage.removeItem("user");
+    logout();
     navigate("/login");
   };
 
-  const handleChangePasswordSubmit = (e) => {
+  const handleChangePasswordSubmit = async (e) => {
     e.preventDefault();
 
     if (passwords.new !== passwords.confirm) {
@@ -50,15 +53,22 @@ function MainLayout() {
       return;
     }
 
-    alert("Password changed successfully!");
-
-    setPasswords({
-      current: "",
-      new: "",
-      confirm: "",
-    });
-
-    setIsModalOpen(false);
+    try {
+      const res = await authService.changePassword(passwords.current, passwords.new);
+      if (res.success) {
+        alert("Password changed successfully!");
+        setPasswords({
+          current: "",
+          new: "",
+          confirm: "",
+        });
+        setIsModalOpen(false);
+      } else {
+        alert(res.message || "Failed to change password.");
+      }
+    } catch (err) {
+      alert(err.response?.data?.message || "Error changing password.");
+    }
   };
 
   return (

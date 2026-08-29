@@ -1,6 +1,7 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
 
 import MainLayout from "./components/MainLayout";
+import ProtectedRoute from "./components/ProtectedRoute";
 
 import PortfolioPage from "./portfolio/PortfolioPage";
 import Dashboard from "./pages/Dashboard";
@@ -27,10 +28,17 @@ function App() {
         <Route path="/" element={<PortfolioPage />} />
         <Route path="/portfolio" element={<PortfolioPage />} />
 
-        {/* LifeOS System Access & Modules */}
+        {/* LifeOS Public System Access */}
         <Route path="/login" element={<Login />} />
 
-        <Route element={<MainLayout />}>
+        {/* LifeOS Protected System Modules */}
+        <Route
+          element={
+            <ProtectedRoute>
+              <MainLayout />
+            </ProtectedRoute>
+          }
+        >
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/discipline" element={<DisciplineDashboard />} />
           <Route path="/career" element={<CareerModule />} />

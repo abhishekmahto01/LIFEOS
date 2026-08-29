@@ -1,88 +1,35 @@
-from flask import Flask, request, jsonify
+from flask import Flask
 from flask_cors import CORS
-from database.db import get_connection, init_db
+from config import Config
+from database.db import init_db
 
+from routes.auth_routes import auth_blueprint
 from routes.user_routes import user_blueprint
 from routes.dashboard_routes import dashboard_bp
 from routes.job_routes import job_blueprint
 from routes.discipline_routes import discipline_blueprint
 
 app = Flask(__name__)
-CORS(app)
+app.config.from_object(Config)
+
+# Configure CORS with origins restricted by environment configuration
+CORS(
+    app,
+    resources={r"/api/*": {"origins": Config.CORS_ALLOWED_ORIGINS}},
+    supports_credentials=True,
+    allow_headers=["Content-Type", "Authorization", "X-Requested-With"],
+    methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"]
+)
 
 # Ensure database tables/columns are verified on startup
 init_db()
 
-# Blueprints
+# Register Blueprints
+app.register_blueprint(auth_blueprint)
 app.register_blueprint(user_blueprint)
 app.register_blueprint(dashboard_bp)
 app.register_blueprint(job_blueprint)
 app.register_blueprint(discipline_blueprint)
 
-
-@app.route('/api/login', methods=['POST'])
-def login():
-    data = request.get_json()
-
-    username = data.get('username', '').strip()
-    password = data.get('password', '').strip()
-
-    if not username or not password:
-        return jsonify({
-            "success": False,
-            "message": "Username/password required"
-        }), 400
-
-    conn = get_connection()
-    cur = conn.cursor()
-
-    cur.execute(
-        """
-        SELECT
-            user_id,
-            user_name,
-            password,
-            is_active
-        FROM user_master
-        WHERE user_name = %s
-        """,
-        (username,)
-    )
-
-    user = cur.fetchone()
-
-    cur.close()
-    conn.close()
-
-    if user is None:
-        return jsonify({
-            "success": False,
-            "message": "Invalid username or password"
-        }), 401
-
-    user_id, db_username, db_password, is_active = user
-
-    if not is_active:
-        return jsonify({
-            "success": False,
-            "message": "Account inactive"
-        }), 403
-
-    if password != db_password:
-        return jsonify({
-            "success": False,
-            "message": "Invalid username or password"
-        }), 401
-
-    return jsonify({
-        "success": True,
-        "message": "Login successful",
-        "user": {
-            "user_id": user_id,
-            "username": db_username
-        }
-    }), 200
-
-
 if __name__ == '__main__':
-    app.run(debug=True, port=5000)
+    app.run(debug=Config.DEBUG, port=Config.PORT)

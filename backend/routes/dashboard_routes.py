@@ -1,11 +1,15 @@
 from flask import Blueprint, jsonify
 from database.db import get_connection
+from utils.helpers import token_required
 
 dashboard_bp = Blueprint("dashboard_bp", __name__)
 
-
+@dashboard_bp.route("/api/dashboard/modules", methods=["GET"])
 @dashboard_bp.route("/api/dashboard/modules/<int:user_id>", methods=["GET"])
-def get_user_modules(user_id):
+@token_required
+def get_user_modules(current_user, user_id=None):
+    # Always prioritize verified token user identity
+    target_user_id = current_user['user_id'] if user_id is None else user_id
 
     conn = get_connection()
     cur = conn.cursor()
@@ -22,12 +26,11 @@ def get_user_modules(user_id):
         WHERE p.user_id = %s
           AND m.is_active = TRUE
         ORDER BY m.sequence_no
-    """, (user_id,))
+    """, (target_user_id,))
 
     rows = cur.fetchall()
 
     modules = []
-
     for row in rows:
         modules.append({
             "id": row[0],
@@ -39,4 +42,4 @@ def get_user_modules(user_id):
     cur.close()
     conn.close()
 
-    return jsonify(modules)
+    return jsonify(modules), 200

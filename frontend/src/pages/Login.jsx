@@ -1,13 +1,15 @@
 import { useState, useEffect, useRef } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import axios from "axios";
 import { Zap, Lock, User, Eye, EyeOff, ArrowRight, Sparkles } from "lucide-react";
 import "./Login.css";
 import logo from "../assets/images/lifeos-logo.png";
 import userRiderImg from "../assets/images/user-s1000-rider.jpg";
 import ThemeToggle from "../components/ThemeToggle";
+import authService from "../services/authService";
+import { useAuth } from "../context/AuthContext";
 
 function Login() {
+  const { login: authLogin } = useAuth();
   const [showPassword, setShowPassword] = useState(false);
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
@@ -179,16 +181,10 @@ function Login() {
     setLoading(true);
 
     try {
-      const res = await axios.post("http://localhost:5000/api/login", {
-        username,
-        password,
-      });
+      const data = await authService.login(username, password);
 
-      if (res.data.success) {
-        localStorage.setItem(
-          "user",
-          JSON.stringify(res.data.user)
-        );
+      if (data.success) {
+        authLogin(data.user, data.token);
 
         // 🚀 TRIGGER CINEMATIC BIKE LAUNCH SEQUENCE
         setIsLaunching(true);
@@ -198,7 +194,7 @@ function Login() {
           navigate("/dashboard");
         }, 1100);
       } else {
-        setError(res.data.message || "Login failed");
+        setError(data.message || "Login failed");
         setLoading(false);
       }
     } catch (err) {

@@ -1,7 +1,5 @@
 import { useState, useEffect } from "react";
-import axios from "axios";
-
-const API = "http://localhost:5000";
+import api from "../../services/api";
 
 function UserMaster() {
   const [users, setUsers] = useState([]);
@@ -18,7 +16,7 @@ function UserMaster() {
     setLoading(true);
     setError("");
     try {
-      const res = await axios.get(`${API}/api/admin/users`);
+      const res = await api.get("/api/admin/users");
       setUsers(res.data.users || []);
     } catch (err) {
       setError("Failed to load users. Is the backend running?");
@@ -31,7 +29,7 @@ function UserMaster() {
     if (!newUserName.trim()) { showMsg("error", "Username is required"); return; }
     setSaving(true);
     try {
-      const res = await axios.post(`${API}/api/admin/users`, {
+      const res = await api.post("/api/admin/users", {
         user_name: newUserName.trim(),
         is_active: isActive,
       });
@@ -48,7 +46,7 @@ function UserMaster() {
 
   const handleToggle = async (userId) => {
     try {
-      const res = await axios.patch(`${API}/api/admin/users/${userId}/toggle`);
+      const res = await api.patch(`/api/admin/users/${userId}/toggle`);
       setUsers((prev) => prev.map((u) => u.user_id === userId ? { ...u, is_active: res.data.is_active } : u));
       showMsg("success", "User status updated");
     } catch (err) {

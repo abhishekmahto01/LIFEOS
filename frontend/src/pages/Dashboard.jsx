@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import axios from "axios";
+import api from "../services/api";
 import {
   Zap,
   Flame,
@@ -49,8 +49,8 @@ function Dashboard() {
       }
 
       // Fetch user allowed modules
-      const res = await axios.get(
-        `http://localhost:5000/api/dashboard/modules/${user.user_id}`
+      const res = await api.get(
+        `/api/dashboard/modules/${user.user_id}`
       );
 
       // Fetch live discipline summary

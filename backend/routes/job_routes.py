@@ -9,6 +9,21 @@ def parse_date(date_val):
         return None
     return date_val
 
+def get_current_job_user_id(data=None):
+    auth_header = request.headers.get("Authorization")
+    if auth_header and auth_header.startswith("Bearer "):
+        try:
+            from utils.jwt_handler import decode_token
+            token = auth_header.split(" ")[1]
+            payload = decode_token(token)
+            if "user_id" in payload:
+                return int(payload["user_id"])
+        except Exception:
+            pass
+    if data and isinstance(data, dict):
+        return data.get('user_id') or None
+    return None
+
 @job_blueprint.route('/api/jobs', methods=['POST'])
 def add_job_entry():
     data = request.get_json() or {}
@@ -70,7 +85,7 @@ def add_job_entry():
             data.get('resume_version', '').strip() or None,
             data.get('skills', '').strip() or None,
             data.get('hr_contact', '').strip() or None,
-            data.get('user_id') or None
+            get_current_job_user_id(data)
         ))
 
         new_row = cur.fetchone()

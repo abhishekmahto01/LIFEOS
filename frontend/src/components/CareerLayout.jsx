@@ -11,6 +11,8 @@ import {
   ArrowLeft,
 } from "lucide-react";
 import "./CareerLayout.css";
+import { useAuth } from "../context/AuthContext";
+import authService from "../services/authService";
 
 const menuItems = [
   { label: "Career Home", icon: Home, path: "/career" },
@@ -20,25 +22,35 @@ const menuItems = [
 
 function CareerLayout() {
   const navigate = useNavigate();
+  const { logout } = useAuth();
   const [collapsed, setCollapsed] = useState(false);
   const [search, setSearch] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [passwords, setPasswords] = useState({ current: "", new: "", confirm: "" });
 
   const handleLogout = () => {
-    localStorage.removeItem("user");
+    logout();
     navigate("/login");
   };
 
-  const handleChangePasswordSubmit = (e) => {
+  const handleChangePasswordSubmit = async (e) => {
     e.preventDefault();
     if (passwords.new !== passwords.confirm) {
       alert("New password and Confirm password do not match!");
       return;
     }
-    alert("Password changed successfully!");
-    setPasswords({ current: "", new: "", confirm: "" });
-    setIsModalOpen(false);
+    try {
+      const res = await authService.changePassword(passwords.current, passwords.new);
+      if (res.success) {
+        alert("Password changed successfully!");
+        setPasswords({ current: "", new: "", confirm: "" });
+        setIsModalOpen(false);
+      } else {
+        alert(res.message || "Failed to change password.");
+      }
+    } catch (err) {
+      alert(err.response?.data?.message || "Error changing password.");
+    }
   };
 
   const filteredItems = menuItems.filter((item) =>

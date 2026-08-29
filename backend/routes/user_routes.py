@@ -1,10 +1,12 @@
 from flask import Blueprint, request, jsonify
 from database.db import get_connection
+from utils.helpers import token_required, hash_password, check_password
 
 user_blueprint = Blueprint('users', __name__)
 
 @user_blueprint.route('/api/admin/users', methods=['GET'])
-def get_all_users():
+@token_required
+def get_all_users(current_user):
     try:
         conn = get_connection()
         cur = conn.cursor()
@@ -18,8 +20,9 @@ def get_all_users():
         return jsonify({"success": False, "message": str(e)}), 500
 
 @user_blueprint.route('/api/admin/users', methods=['POST'])
-def create_user():
-    data = request.get_json()
+@token_required
+def create_user(current_user):
+    data = request.get_json() or {}
     user_name = data.get('user_name', '').strip()
     is_active = data.get('is_active', True)
     if not user_name:
@@ -31,16 +34,23 @@ def create_user():
         if cur.fetchone():
             cur.close(); conn.close()
             return jsonify({"success": False, "message": "Username already exists"}), 409
-        cur.execute("INSERT INTO user_master (user_name, password, is_active) VALUES (%s, %s, %s) RETURNING user_id",
-            (user_name, user_name, is_active))
+
+        # Secure default password hashed with bcrypt
+        hashed_default_pwd = hash_password(user_name)
+
+        cur.execute(
+            "INSERT INTO user_master (user_name, password, is_active) VALUES (%s, %s, %s) RETURNING user_id",
+            (user_name, hashed_default_pwd, is_active)
+        )
         new_id = cur.fetchone()[0]
         conn.commit(); cur.close(); conn.close()
-        return jsonify({"success": True, "message": f"User '{user_name}' created. Default password is same as username.", "user_id": new_id}), 201
+        return jsonify({"success": True, "message": f"User '{user_name}' created securely. Default password is same as username.", "user_id": new_id}), 201
     except Exception as e:
         return jsonify({"success": False, "message": str(e)}), 500
 
 @user_blueprint.route('/api/admin/users/<int:user_id>/toggle', methods=['PATCH'])
-def toggle_user_status(user_id):
+@token_required
+def toggle_user_status(user_id, current_user):
     try:
         conn = get_connection()
         cur = conn.cursor()
@@ -51,30 +61,5 @@ def toggle_user_status(user_id):
             return jsonify({"success": False, "message": "User not found"}), 404
         conn.commit(); cur.close(); conn.close()
         return jsonify({"success": True, "is_active": result[0]}), 200
-    except Exception as e:
-        return jsonify({"success": False, "message": str(e)}), 500
-
-@user_blueprint.route('/api/change-password', methods=['POST'])
-def change_password():
-    data = request.get_json()
-    user_id = data.get('user_id')
-    old_password = data.get('old_password', '').strip()
-    new_password = data.get('new_password', '').strip()
-    if not all([user_id, old_password, new_password]):
-        return jsonify({"success": False, "message": "All fields required"}), 400
-    try:
-        conn = get_connection()
-        cur = conn.cursor()
-        cur.execute("SELECT password FROM user_master WHERE user_id = %s", (user_id,))
-        row = cur.fetchone()
-        if not row:
-            cur.close(); conn.close()
-            return jsonify({"success": False, "message": "User not found"}), 404
-        if row[0] != old_password:
-            cur.close(); conn.close()
-            return jsonify({"success": False, "message": "Current password is incorrect"}), 401
-        cur.execute("UPDATE user_master SET password = %s WHERE user_id = %s", (new_password, user_id))
-        conn.commit(); cur.close(); conn.close()
-        return jsonify({"success": True, "message": "Password changed successfully"}), 200
     except Exception as e:
         return jsonify({"success": False, "message": str(e)}), 500
