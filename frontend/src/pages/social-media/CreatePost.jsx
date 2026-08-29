@@ -274,6 +274,7 @@ export function CreatePost() {
         {
           platform: "YOUTUBE",
           account_id: selectedAccount.id,
+          privacy_status: privacyStatus,
         },
       ];
       formData.append("platforms", JSON.stringify(platformTargets));

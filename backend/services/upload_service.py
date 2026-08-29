@@ -450,7 +450,7 @@ def validate_platform_targets(user_id: int, platforms_data: list, cur) -> list:
             "custom_title": item.get("custom_title"),
             "custom_caption": item.get("custom_caption"),
             "custom_description": item.get("custom_description"),
-            "privacy_status": item.get("privacy_status", "PUBLIC")
+            "privacy_status": item.get("privacy_status")
         })
 
     return validated
