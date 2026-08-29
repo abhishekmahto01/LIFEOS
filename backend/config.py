@@ -22,7 +22,7 @@ class Config:
     JWT_SECRET_KEY = os.getenv("JWT_SECRET_KEY", "lifeos-jwt-signing-secret-key-32-chars")
     JWT_ACCESS_TOKEN_EXPIRES = int(os.getenv("JWT_ACCESS_TOKEN_EXPIRES", 86400))  # 24 hours in seconds
 
-    # AES-256 Fernet Encryption Key for OAuth Tokens at Rest
+    # Fernet Authenticated Encryption Key for OAuth Tokens at Rest
     ENCRYPTION_KEY = os.getenv("ENCRYPTION_KEY", "")
 
     # CORS Settings

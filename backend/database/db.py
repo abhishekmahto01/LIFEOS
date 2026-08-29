@@ -1,6 +1,7 @@
 import os
 import psycopg2
 from dotenv import load_dotenv
+from database.social_media_schema import create_social_media_schema
 
 # Ensure .env is properly loaded from backend folder or current working dir
 backend_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -24,6 +25,8 @@ get_db_connection = get_connection
 
 def init_db():
     """Ensure all required tables and columns exist for LifeOS modules."""
+    conn = None
+    cur = None
     try:
         conn = get_connection()
         cur = conn.cursor()
@@ -176,9 +179,18 @@ def init_db():
                         VALUES (%s, %s, CURRENT_TIMESTAMP);
                     """, (uid, sm_mod_id))
 
+        # 6. Initialize Social Media Hub Schema (social_accounts, social_content, etc.)
+        create_social_media_schema(conn)
+
         conn.commit()
-        cur.close()
-        conn.close()
-        print("✓ Database tables, indexes, Discipline, and Social Media Hub module verified successfully.")
+        print("✓ Database tables, indexes, Discipline, and Social Media Hub schema verified successfully.")
     except Exception as e:
+        if conn:
+            conn.rollback()
         print("Warning: Database init failed or could not connect:", e)
+        raise
+    finally:
+        if cur:
+            cur.close()
+        if conn:
+            conn.close()
