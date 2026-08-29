@@ -92,7 +92,7 @@ class TestYouTubeOAuth(unittest.TestCase):
         self.assertIn("accounts.google.com", auth_url)
         self.assertIn(Config.GOOGLE_CLIENT_ID, auth_url)
         self.assertIn("youtube.readonly", auth_url)
-        self.assertNotIn("youtube.upload", auth_url)  # Stage 5 strictly read-only
+        self.assertIn("youtube.upload", auth_url)  # Phase 6 includes upload scope
         self.assertIn("access_type=offline", auth_url)
         self.assertIn("prompt=consent", auth_url)
 

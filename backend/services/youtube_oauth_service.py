@@ -20,6 +20,8 @@ from database.db import get_connection
 from utils.crypto import encrypt_token, decrypt_token
 
 YOUTUBE_READONLY_SCOPE = "https://www.googleapis.com/auth/youtube.readonly"
+YOUTUBE_UPLOAD_SCOPE = "https://www.googleapis.com/auth/youtube.upload"
+YOUTUBE_AUTH_SCOPES = [YOUTUBE_READONLY_SCOPE, YOUTUBE_UPLOAD_SCOPE]
 GOOGLE_AUTH_BASE = "https://accounts.google.com/o/oauth2/v2/auth"
 GOOGLE_TOKEN_ENDPOINT = "https://oauth2.googleapis.com/token"
 GOOGLE_REVOKE_ENDPOINT = "https://oauth2.googleapis.com/revoke"
@@ -30,7 +32,7 @@ def get_youtube_authorization_url(user_id: int) -> dict:
     Generate official Google OAuth 2.0 authorization URL.
     - Creates cryptographically secure random state token.
     - Stores SHA-256 hash in oauth_states table with 10-minute TTL.
-    - Requests read-only scope for Stage 5.
+    - Requests read-only and upload scopes for Phase 6.
     - Never logs or exposes raw secrets.
     """
     if not Config.GOOGLE_CLIENT_ID or not Config.GOOGLE_CLIENT_SECRET:
@@ -60,7 +62,7 @@ def get_youtube_authorization_url(user_id: int) -> dict:
         "client_id": Config.GOOGLE_CLIENT_ID,
         "redirect_uri": Config.GOOGLE_REDIRECT_URI,
         "response_type": "code",
-        "scope": YOUTUBE_READONLY_SCOPE,
+        "scope": " ".join(YOUTUBE_AUTH_SCOPES),
         "access_type": "offline",
         "include_granted_scopes": "true",
         "state": raw_state,
@@ -271,7 +273,7 @@ def get_user_social_accounts(user_id: int) -> list:
         cur.execute("""
             SELECT
                 id, platform, platform_account_id, account_name, account_username,
-                profile_image_url, connection_status, token_expires_at, created_at, updated_at
+                profile_image_url, connection_status, token_expires_at, raw_scopes, created_at, updated_at
             FROM social_accounts
             WHERE user_id = %s
             ORDER BY id ASC;
@@ -281,11 +283,14 @@ def get_user_social_accounts(user_id: int) -> list:
         accounts = []
         now_utc = datetime.datetime.now(datetime.timezone.utc)
         for r in rows:
-            aid, plat, paid, aname, auser, pimg, status, expires_at, created_at, updated_at = r
+            aid, plat, paid, aname, auser, pimg, status, expires_at, raw_scopes, created_at, updated_at = r
 
             computed_status = status
             if status == "ACTIVE" and expires_at and expires_at < now_utc:
                 computed_status = "EXPIRED"
+
+            can_upload = bool(raw_scopes and YOUTUBE_UPLOAD_SCOPE in raw_scopes) if plat == "YOUTUBE" else False
+            reconnect_required = bool(plat == "YOUTUBE" and not can_upload)
 
             accounts.append({
                 "id": aid,
@@ -295,6 +300,8 @@ def get_user_social_accounts(user_id: int) -> list:
                 "account_username": auser,
                 "profile_image_url": pimg,
                 "connection_status": computed_status,
+                "can_upload": can_upload,
+                "reconnect_required": reconnect_required,
                 "token_expires_at": expires_at.isoformat() if expires_at else None,
                 "created_at": created_at.isoformat() if created_at else None,
                 "updated_at": updated_at.isoformat() if updated_at else None

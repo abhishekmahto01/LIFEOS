@@ -127,6 +127,9 @@ def create_social_media_schema(conn):
         cur.execute("""
             ALTER TABLE social_content ADD COLUMN IF NOT EXISTS original_timezone VARCHAR(50) DEFAULT 'UTC';
             ALTER TABLE social_content ADD COLUMN IF NOT EXISTS temp_file_expires_at TIMESTAMP WITH TIME ZONE;
+            ALTER TABLE social_content ADD COLUMN IF NOT EXISTS privacy_status VARCHAR(50) DEFAULT 'PUBLIC';
+            ALTER TABLE social_content ADD COLUMN IF NOT EXISTS made_for_kids BOOLEAN DEFAULT FALSE;
+            ALTER TABLE social_content ADD COLUMN IF NOT EXISTS category_id VARCHAR(50) DEFAULT '22';
         """)
 
         # Status check constraint for social_content
@@ -139,6 +142,20 @@ def create_social_media_schema(conn):
                     ALTER TABLE social_content
                     ADD CONSTRAINT chk_social_content_overall_status
                     CHECK (overall_status IN ('DRAFT', 'SCHEDULED', 'PROCESSING', 'PUBLISHED', 'PARTIALLY_PUBLISHED', 'FAILED', 'DELETED'));
+                END IF;
+            END $$;
+        """)
+
+        # Constraints for social_content
+        cur.execute("""
+            DO $$
+            BEGIN
+                IF NOT EXISTS (
+                    SELECT 1 FROM pg_constraint WHERE conname = 'chk_social_content_media_type'
+                ) THEN
+                    ALTER TABLE social_content
+                    ADD CONSTRAINT chk_social_content_media_type
+                    CHECK (media_type IN ('VIDEO', 'IMAGE', 'CAROUSEL', 'TEXT'));
                 END IF;
             END $$;
         """)
@@ -187,6 +204,13 @@ def create_social_media_schema(conn):
                 last_attempt_at TIMESTAMP WITH TIME ZONE,
                 published_at TIMESTAMP WITH TIME ZONE,
                 error_message TEXT,
+                upload_progress_percent INTEGER DEFAULT 0,
+                bytes_sent BIGINT DEFAULT 0,
+                total_bytes BIGINT DEFAULT 0,
+                encrypted_session_uri TEXT,
+                thumbnail_status VARCHAR(50) DEFAULT 'IDLE',
+                made_for_kids BOOLEAN DEFAULT FALSE,
+                category_id VARCHAR(50) DEFAULT '22',
                 created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
                 updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
                 CONSTRAINT uq_content_platform_account UNIQUE (content_id, platform, account_id)
@@ -199,6 +223,17 @@ def create_social_media_schema(conn):
             ALTER TABLE social_content_platforms ADD COLUMN IF NOT EXISTS processing_status VARCHAR(50) DEFAULT 'IDLE';
             ALTER TABLE social_content_platforms ADD COLUMN IF NOT EXISTS platform_error_code VARCHAR(100);
             ALTER TABLE social_content_platforms ADD COLUMN IF NOT EXISTS published_at TIMESTAMP WITH TIME ZONE;
+            ALTER TABLE social_content_platforms ADD COLUMN IF NOT EXISTS upload_progress_percent INTEGER DEFAULT 0;
+            ALTER TABLE social_content_platforms ADD COLUMN IF NOT EXISTS bytes_sent BIGINT DEFAULT 0;
+            ALTER TABLE social_content_platforms ADD COLUMN IF NOT EXISTS total_bytes BIGINT DEFAULT 0;
+            ALTER TABLE social_content_platforms ADD COLUMN IF NOT EXISTS encrypted_session_uri TEXT;
+            ALTER TABLE social_content_platforms ADD COLUMN IF NOT EXISTS thumbnail_status VARCHAR(50) DEFAULT 'IDLE';
+            ALTER TABLE social_content_platforms ADD COLUMN IF NOT EXISTS made_for_kids BOOLEAN DEFAULT FALSE;
+            ALTER TABLE social_content_platforms ADD COLUMN IF NOT EXISTS category_id VARCHAR(50) DEFAULT '22';
+            ALTER TABLE social_content_platforms ADD COLUMN IF NOT EXISTS claim_token VARCHAR(64);
+            ALTER TABLE social_content_platforms ADD COLUMN IF NOT EXISTS claim_expires_at TIMESTAMP WITH TIME ZONE;
+            ALTER TABLE social_content_platforms ADD COLUMN IF NOT EXISTS next_processing_check_at TIMESTAMP WITH TIME ZONE;
+            ALTER TABLE social_content_platforms ADD COLUMN IF NOT EXISTS processing_check_count INTEGER NOT NULL DEFAULT 0;
         """)
 
         # Constraints for social_content_platforms
@@ -206,7 +241,7 @@ def create_social_media_schema(conn):
             DO $$
             BEGIN
                 IF NOT EXISTS (
-                    SELECT 1 FROM pg_constraint WHERE conname = 'chk_scp_platform'
+                    SELECT 1 FROM pg_constraint WHERE conrelid = 'social_content_platforms'::regclass AND conname = 'chk_scp_platform'
                 ) THEN
                     ALTER TABLE social_content_platforms
                     ADD CONSTRAINT chk_scp_platform
@@ -214,7 +249,7 @@ def create_social_media_schema(conn):
                 END IF;
 
                 IF NOT EXISTS (
-                    SELECT 1 FROM pg_constraint WHERE conname = 'chk_scp_platform_status'
+                    SELECT 1 FROM pg_constraint WHERE conrelid = 'social_content_platforms'::regclass AND conname = 'chk_scp_platform_status'
                 ) THEN
                     ALTER TABLE social_content_platforms
                     ADD CONSTRAINT chk_scp_platform_status
@@ -222,7 +257,7 @@ def create_social_media_schema(conn):
                 END IF;
 
                 IF NOT EXISTS (
-                    SELECT 1 FROM pg_constraint WHERE conname = 'chk_scp_processing_status'
+                    SELECT 1 FROM pg_constraint WHERE conrelid = 'social_content_platforms'::regclass AND conname = 'chk_scp_processing_status'
                 ) THEN
                     ALTER TABLE social_content_platforms
                     ADD CONSTRAINT chk_scp_processing_status
@@ -230,11 +265,59 @@ def create_social_media_schema(conn):
                 END IF;
 
                 IF NOT EXISTS (
-                    SELECT 1 FROM pg_constraint WHERE conname = 'chk_scp_privacy_status'
+                    SELECT 1 FROM pg_constraint WHERE conrelid = 'social_content_platforms'::regclass AND conname = 'chk_scp_privacy_status'
                 ) THEN
                     ALTER TABLE social_content_platforms
                     ADD CONSTRAINT chk_scp_privacy_status
                     CHECK (privacy_status IN ('PUBLIC', 'PRIVATE', 'UNLISTED'));
+                END IF;
+
+                IF NOT EXISTS (
+                    SELECT 1 FROM pg_constraint WHERE conrelid = 'social_content_platforms'::regclass AND conname = 'chk_scp_upload_progress'
+                ) THEN
+                    ALTER TABLE social_content_platforms
+                    ADD CONSTRAINT chk_scp_upload_progress
+                    CHECK (upload_progress_percent >= 0 AND upload_progress_percent <= 100);
+                END IF;
+
+                IF NOT EXISTS (
+                    SELECT 1 FROM pg_constraint WHERE conrelid = 'social_content_platforms'::regclass AND conname = 'chk_scp_bytes_sent'
+                ) THEN
+                    ALTER TABLE social_content_platforms
+                    ADD CONSTRAINT chk_scp_bytes_sent
+                    CHECK (bytes_sent >= 0);
+                END IF;
+
+                IF NOT EXISTS (
+                    SELECT 1 FROM pg_constraint WHERE conrelid = 'social_content_platforms'::regclass AND conname = 'chk_scp_total_bytes'
+                ) THEN
+                    ALTER TABLE social_content_platforms
+                    ADD CONSTRAINT chk_scp_total_bytes
+                    CHECK (total_bytes >= 0);
+                END IF;
+
+                IF NOT EXISTS (
+                    SELECT 1 FROM pg_constraint WHERE conrelid = 'social_content_platforms'::regclass AND conname = 'chk_scp_bytes_relation'
+                ) THEN
+                    ALTER TABLE social_content_platforms
+                    ADD CONSTRAINT chk_scp_bytes_relation
+                    CHECK (total_bytes = 0 OR bytes_sent <= total_bytes);
+                END IF;
+
+                IF NOT EXISTS (
+                    SELECT 1 FROM pg_constraint WHERE conrelid = 'social_content_platforms'::regclass AND conname = 'chk_scp_thumbnail_status'
+                ) THEN
+                    ALTER TABLE social_content_platforms
+                    ADD CONSTRAINT chk_scp_thumbnail_status
+                    CHECK (thumbnail_status IN ('IDLE', 'UPLOADING', 'UPLOADED', 'FAILED'));
+                END IF;
+
+                IF NOT EXISTS (
+                    SELECT 1 FROM pg_constraint WHERE conrelid = 'social_content_platforms'::regclass AND conname = 'chk_scp_check_count'
+                ) THEN
+                    ALTER TABLE social_content_platforms
+                    ADD CONSTRAINT chk_scp_check_count
+                    CHECK (processing_check_count >= 0);
                 END IF;
             END $$;
         """)
@@ -243,6 +326,10 @@ def create_social_media_schema(conn):
         cur.execute("CREATE INDEX IF NOT EXISTS idx_scp_content_id ON social_content_platforms(content_id);")
         cur.execute("CREATE INDEX IF NOT EXISTS idx_scp_account_id ON social_content_platforms(account_id);")
         cur.execute("CREATE INDEX IF NOT EXISTS idx_scp_platform_status ON social_content_platforms(platform, platform_status);")
+        cur.execute("CREATE INDEX IF NOT EXISTS idx_scp_claim_recovery ON social_content_platforms(platform_status, processing_status, claim_expires_at);")
+        cur.execute("CREATE INDEX IF NOT EXISTS idx_scp_processing_recovery ON social_content_platforms(platform, platform_status, next_processing_check_at, claim_expires_at);")
+        cur.execute("CREATE INDEX IF NOT EXISTS idx_scp_post_id ON social_content_platforms(platform_post_id);")
+        cur.execute("CREATE INDEX IF NOT EXISTS idx_sc_user_created ON social_content(user_id, created_at DESC);")
 
         # Trigger for social_content_platforms
         cur.execute("""
@@ -411,12 +498,12 @@ def create_social_media_schema(conn):
             BEGIN
                 -- Safely drop old PRIMARY KEY constraint on 'state' if present
                 IF EXISTS (
-                    SELECT 1 FROM pg_constraint 
+                    SELECT 1 FROM pg_constraint
                     WHERE conrelid = 'oauth_states'::regclass AND conname = 'oauth_states_pkey'
                 ) THEN
                     -- Check if primary key is on 'state'
                     IF EXISTS (
-                        SELECT 1 FROM information_schema.key_column_usage 
+                        SELECT 1 FROM information_schema.key_column_usage
                         WHERE table_name = 'oauth_states' AND constraint_name = 'oauth_states_pkey' AND column_name = 'state'
                     ) THEN
                         ALTER TABLE oauth_states DROP CONSTRAINT oauth_states_pkey;
@@ -426,7 +513,7 @@ def create_social_media_schema(conn):
                 END IF;
 
                 IF NOT EXISTS (
-                    SELECT 1 FROM pg_constraint 
+                    SELECT 1 FROM pg_constraint
                     WHERE conrelid = 'oauth_states'::regclass AND contype = 'p'
                 ) THEN
                     ALTER TABLE oauth_states ADD PRIMARY KEY (id);
@@ -444,7 +531,7 @@ def create_social_media_schema(conn):
                     SELECT 1 FROM pg_constraint WHERE conname = 'uq_oauth_states_state_hash'
                 ) THEN
                     IF EXISTS (
-                        SELECT 1 FROM information_schema.columns 
+                        SELECT 1 FROM information_schema.columns
                         WHERE table_name = 'oauth_states' AND column_name = 'state_hash'
                     ) THEN
                         ALTER TABLE oauth_states ADD CONSTRAINT uq_oauth_states_state_hash UNIQUE (state_hash);

@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   CheckCircle2,
@@ -8,7 +8,6 @@ import {
   PlusCircle,
   Calendar,
   Sparkles,
-  ArrowRight,
   TrendingUp,
   ExternalLink,
   Layers,
@@ -23,24 +22,45 @@ export function SocialMediaDashboard() {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    loadDashboard();
+  const loadDashboard = useCallback(() => {
+    setLoading(true);
+    socialMediaService
+      .getDashboardSummary()
+      .then((summary) => {
+        setData(summary);
+      })
+      .catch(() => {
+        // Keep existing data on error
+      })
+      .finally(() => {
+        setLoading(false);
+      });
   }, []);
 
-  const loadDashboard = async () => {
-    try {
-      setLoading(true);
-      const summary = await socialMediaService.getDashboardSummary();
-      setData(summary);
-    } catch (e) {
-      console.error("Error loading social media dashboard:", e);
-    } finally {
-      setLoading(false);
-    }
-  };
+  useEffect(() => {
+    let ignore = false;
+    socialMediaService
+      .getDashboardSummary()
+      .then((summary) => {
+        if (!ignore) {
+          setData(summary);
+          setLoading(false);
+        }
+      })
+      .catch(() => {
+        if (!ignore) {
+          setLoading(false);
+        }
+      });
+
+    return () => {
+      ignore = true;
+    };
+  }, []);
 
   const metrics = data?.metrics || {
     totalPublished: 0,
+    processingPosts: 0,
     scheduledPosts: 0,
     failedPosts: 0,
     connectedPlatforms: 0,
@@ -60,8 +80,8 @@ export function SocialMediaDashboard() {
       {/* Navigation Header */}
       <SocialMediaNav activeTab="overview" onRefresh={loadDashboard} loading={loading} />
 
-      {/* 01. 4 Metric KPI Cards */}
-      <div className="sm-metrics-grid">
+      {/* 01. Metric KPI Cards */}
+      <div className="sm-metrics-grid" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))" }}>
         <div className="sm-metric-card">
           <div className="sm-metric-icon published">
             <CheckCircle2 size={22} />
@@ -77,8 +97,18 @@ export function SocialMediaDashboard() {
             <Clock size={22} />
           </div>
           <div className="sm-metric-info">
-            <span className="sm-metric-label">Scheduled Posts</span>
-            <span className="sm-metric-value">{metrics.scheduledPosts}</span>
+            <span className="sm-metric-label">In Progress</span>
+            <span className="sm-metric-value">{metrics.processingPosts || 0}</span>
+          </div>
+        </div>
+
+        <div className="sm-metric-card">
+          <div className="sm-metric-icon scheduled">
+            <Calendar size={22} />
+          </div>
+          <div className="sm-metric-info">
+            <span className="sm-metric-label">Scheduled</span>
+            <span className="sm-metric-value">{metrics.scheduledPosts || 0}</span>
           </div>
         </div>
 
@@ -97,7 +127,7 @@ export function SocialMediaDashboard() {
             <Globe size={22} />
           </div>
           <div className="sm-metric-info">
-            <span className="sm-metric-label">Connected Platforms</span>
+            <span className="sm-metric-label">Connected</span>
             <span className="sm-metric-value">{metrics.connectedPlatforms} / 3</span>
           </div>
         </div>
@@ -260,17 +290,57 @@ export function SocialMediaDashboard() {
               </div>
               <h4 className="sm-empty-title">No content created yet</h4>
               <p className="sm-empty-desc">
-                Upload a video once, customize per-platform metadata, and broadcast across YouTube, Instagram, and Facebook.
+                Upload a video once, customize per-platform metadata, and broadcast across YouTube.
               </p>
               <button
                 className="sm-empty-btn"
                 onClick={() => navigate("/social-media/create")}
               >
-                + Create First Omnichannel Post
+                + Create First Post
               </button>
             </div>
           ) : (
-            <div>Recent post list items</div>
+            <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+              {recentPosts.map((post) => (
+                <div
+                  key={post.id}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    padding: "10px 14px",
+                    borderRadius: "10px",
+                    background: "rgba(0,0,0,0.02)",
+                    border: "1px solid rgba(0,0,0,0.06)",
+                  }}
+                >
+                  <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                    <Youtube size={18} />
+                    <div>
+                      <div style={{ fontSize: "13px", fontWeight: "700", color: "var(--text-primary, #0f172a)" }}>
+                        {post.title}
+                      </div>
+                      <div style={{ fontSize: "11px", color: "var(--text-muted, #64748b)" }}>
+                        {post.created_at ? new Date(post.created_at).toLocaleDateString() : ""}
+                      </div>
+                    </div>
+                  </div>
+                  <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                    <span className={`sm-badge ${post.status}`}>{post.status}</span>
+                    {post.url && (
+                      <a
+                        href={post.url}
+                        target="_blank"
+                        rel="noreferrer"
+                        style={{ color: "#2563eb", display: "inline-flex", alignItems: "center" }}
+                      >
+                        <ExternalLink size={14} />
+                      </a>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
           )}
         </div>
 

@@ -1,445 +1,649 @@
-import { useState } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   UploadCloud,
   Film,
   Image as ImageIcon,
   CheckCircle2,
-  Calendar,
-  Clock,
-  Sparkles,
-  Save,
-  Send,
   AlertCircle,
-  Hash,
-  Smartphone,
+  RefreshCw,
+  ExternalLink,
+  Loader2,
 } from "lucide-react";
 import { Youtube, Instagram, Facebook } from "../../components/social-media/PlatformIcons";
 import SocialMediaNav from "../../components/social-media/SocialMediaNav";
+import { socialMediaService } from "../../services/socialMediaService";
 import "./SocialMedia.css";
 
 export function CreatePost() {
   const navigate = useNavigate();
 
+  const [accounts, setAccounts] = useState([]);
+  const [accountsLoading, setAccountsLoading] = useState(true);
+  const [accountsError, setAccountsError] = useState(null);
+
+  const [selectedAccountId, setSelectedAccountId] = useState(null);
   const [selectedVideo, setSelectedVideo] = useState(null);
   const [selectedThumbnail, setSelectedThumbnail] = useState(null);
+  const [postTitle, setPostTitle] = useState("");
   const [commonCaption, setCommonCaption] = useState("");
-  const [hashtags, setHashtags] = useState("#data #datascience #coding #analytics #lifeos");
+  const [hashtags, setHashtags] = useState("#data #coding #analytics #lifeos");
+  const [privacyStatus, setPrivacyStatus] = useState("PRIVATE");
+  const [madeForKids, setMadeForKids] = useState(false);
+  const [categoryId, setCategoryId] = useState("22");
 
-  // Platform selections
+  // Platform selection (Phase 6: YouTube enabled)
   const [platforms, setPlatforms] = useState({
     youtube: true,
-    instagram: true,
+    instagram: false,
     facebook: false,
   });
 
-  // Customization per platform
-  const [activePlatformTab, setActivePlatformTab] = useState("youtube");
-  const [youtubeTitle, setYoutubeTitle] = useState("");
-  const [youtubeDesc, setYoutubeDesc] = useState("");
-  const [instagramCaption, setInstagramCaption] = useState("");
-  const [facebookCaption, setFacebookCaption] = useState("");
-
-  // Publish mode: 'now', 'schedule', 'draft'
-  const [publishMode, setPublishMode] = useState("now");
-  const [scheduleDateTime, setScheduleDateTime] = useState("");
+  // Upload & Pipeline State
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [message, setMessage] = useState(null);
+  const [uploadProgress, setUploadProgress] = useState(0); // 0-100% (Browser -> LifeOS)
+  const [pipelineState, setPipelineState] = useState(null); // 'UPLOADING_LOCAL' | 'QUEUED' | 'UPLOADING_YOUTUBE' | 'PROCESSING_YOUTUBE' | 'PUBLISHED' | 'FAILED'
+  const [activeContentId, setActiveContentId] = useState(null);
+  const [publishedUrl, setPublishedUrl] = useState(null);
+  const [errorMessage, setErrorMessage] = useState(null);
+  const [youtubeChunkProgress, setYoutubeChunkProgress] = useState(0);
+
+  const pollTimeoutRef = useRef(null);
+  const pollAttemptsRef = useRef(0);
+  const isMountedRef = useRef(true);
+
+  const fetchConnectedAccounts = useCallback(() => {
+    setAccountsLoading(true);
+    setAccountsError(null);
+    socialMediaService
+      .getAccounts()
+      .then((res) => {
+        if (res.success) {
+          const accs = res.accounts || [];
+          setAccounts(accs);
+          const ytActive = accs.find(
+            (a) => a.platform?.toUpperCase() === "YOUTUBE" && a.connection_status === "ACTIVE"
+          );
+          if (ytActive) {
+            setSelectedAccountId(ytActive.id);
+          }
+        } else {
+          setAccountsError(res.error || "Failed to load connected accounts.");
+        }
+      })
+      .catch(() => {
+        setAccountsError("Network error while loading connected accounts.");
+      })
+      .finally(() => {
+        setAccountsLoading(false);
+      });
+  }, []);
+
+  useEffect(() => {
+    isMountedRef.current = true;
+    let ignore = false;
+
+    socialMediaService
+      .getAccounts()
+      .then((res) => {
+        if (!ignore) {
+          if (res.success) {
+            const accs = res.accounts || [];
+            setAccounts(accs);
+            const ytActive = accs.find(
+              (a) => a.platform?.toUpperCase() === "YOUTUBE" && a.connection_status === "ACTIVE"
+            );
+            if (ytActive) {
+              setSelectedAccountId(ytActive.id);
+            }
+          } else {
+            setAccountsError(res.error || "Failed to load connected accounts.");
+          }
+          setAccountsLoading(false);
+        }
+      })
+      .catch(() => {
+        if (!ignore) {
+          setAccountsError("Network error while loading connected accounts.");
+          setAccountsLoading(false);
+        }
+      });
+
+    return () => {
+      ignore = true;
+      isMountedRef.current = false;
+      if (pollTimeoutRef.current) clearTimeout(pollTimeoutRef.current);
+    };
+  }, []);
+
+  const youtubeAccounts = accounts.filter((a) => a.platform?.toUpperCase() === "YOUTUBE" && a.connection_status === "ACTIVE");
+  const selectedAccount = youtubeAccounts.find((a) => String(a.id) === String(selectedAccountId)) || youtubeAccounts[0];
 
   const handleVideoSelect = (e) => {
     const file = e.target.files[0];
-    if (file) {
-      if (!file.type.startsWith("video/")) {
-        setMessage({ type: "error", text: "Please select a valid video file (MP4, MOV, etc.)" });
-        return;
-      }
-      setSelectedVideo(file);
-      setMessage(null);
-      if (!youtubeTitle) {
-        setYoutubeTitle(file.name.replace(/\.[^/.]+$/, ""));
-      }
+    if (!file) return;
+
+    if (!file.type.startsWith("video/")) {
+      setSelectedVideo(null);
+      setErrorMessage("Please select a valid video file (MP4, MOV, WebM).");
+      return;
+    }
+    setSelectedVideo(file);
+    setErrorMessage(null);
+    if (!postTitle) {
+      const cleanName = file.name.replace(/\.[^/.]+$/, "").substring(0, 100);
+      setPostTitle(cleanName);
     }
   };
 
   const handleThumbnailSelect = (e) => {
     const file = e.target.files[0];
-    if (file) {
-      if (!file.type.startsWith("image/")) {
-        setMessage({ type: "error", text: "Please select a valid image file (PNG, JPG, WebP)" });
-        return;
-      }
-      setSelectedThumbnail(file);
+    if (!file) return;
+
+    if (!file.type.startsWith("image/")) {
+      setSelectedThumbnail(null);
+      setErrorMessage("Please select a valid image file (PNG, JPG).");
+      return;
     }
+    if (file.size > 2 * 1024 * 1024) {
+      setSelectedThumbnail(null);
+      setErrorMessage("Thumbnail must be smaller than 2 MB.");
+      return;
+    }
+    setSelectedThumbnail(file);
+    setErrorMessage(null);
   };
 
-  const togglePlatform = (plat) => {
-    setPlatforms((prev) => ({ ...prev, [plat]: !prev[plat] }));
+  const scheduleNextPoll = (contentId, delayMs = 2000) => {
+    if (!isMountedRef.current) return;
+    if (pollTimeoutRef.current) clearTimeout(pollTimeoutRef.current);
+
+    pollTimeoutRef.current = setTimeout(async () => {
+      if (!isMountedRef.current) return;
+      pollAttemptsRef.current += 1;
+
+      try {
+        const res = await socialMediaService.getContentStatus(contentId);
+        if (!isMountedRef.current) return;
+
+        if (res.success) {
+          const ytPlat = (res.platforms || []).find((p) => p.platform === "YOUTUBE");
+          if (ytPlat) {
+            setYoutubeChunkProgress(ytPlat.upload_progress_percent || 0);
+
+            if (ytPlat.platform_status === "PUBLISHED") {
+              setPipelineState("PUBLISHED");
+              setPublishedUrl(ytPlat.platform_post_url);
+              setIsSubmitting(false);
+              return;
+            } else if (ytPlat.platform_status === "FAILED") {
+              setPipelineState("FAILED");
+              setErrorMessage(ytPlat.error_message || "YouTube publishing encountered an error.");
+              setIsSubmitting(false);
+              return;
+            } else if (ytPlat.processing_status === "PROCESSING") {
+              setPipelineState("PROCESSING_YOUTUBE");
+            } else if (ytPlat.processing_status === "UPLOADING") {
+              setPipelineState("UPLOADING_YOUTUBE");
+            } else {
+              setPipelineState("QUEUED");
+            }
+          }
+        }
+      } catch {
+        // Silently tolerate transient polling error
+      }
+
+      // Max 60 poll iterations (2 minutes)
+      if (pollAttemptsRef.current < 60) {
+        scheduleNextPoll(contentId, 2000);
+      } else {
+        setIsSubmitting(false);
+      }
+    }, delayMs);
+  };
+
+  const startStatusPolling = (contentId) => {
+    setActiveContentId(contentId);
+    pollAttemptsRef.current = 0;
+    scheduleNextPoll(contentId, 1000);
+  };
+
+  const handleRetry = async () => {
+    if (!activeContentId) return;
+
+    try {
+      setIsSubmitting(true);
+      setErrorMessage(null);
+      setPipelineState("QUEUED");
+
+      const res = await socialMediaService.retryYouTubePublish(activeContentId);
+      if (res.success) {
+        startStatusPolling(activeContentId);
+      } else {
+        setErrorMessage(res.error || "Retry failed.");
+        setPipelineState("FAILED");
+        setIsSubmitting(false);
+      }
+    } catch (err) {
+      setErrorMessage(err.response?.data?.error || "Failed to retry publishing.");
+      setPipelineState("FAILED");
+      setIsSubmitting(false);
+    }
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!selectedVideo && publishMode !== "draft") {
-      setMessage({ type: "error", text: "Please select a video file before publishing." });
+    if (!selectedVideo) {
+      setErrorMessage("Please select a video to upload.");
       return;
     }
-    if (!platforms.youtube && !platforms.instagram && !platforms.facebook) {
-      setMessage({ type: "error", text: "Please select at least one publishing platform." });
+
+    if (!selectedAccount) {
+      setErrorMessage("Please select a connected YouTube account.");
+      return;
+    }
+
+    if (!selectedAccount.can_upload) {
+      setErrorMessage("Your YouTube account requires reconnection to grant upload permissions.");
       return;
     }
 
     setIsSubmitting(true);
-    // Phase 1 confirmation / UI validation feedback
-    setTimeout(() => {
-      setIsSubmitting(false);
-      setMessage({
-        type: "success",
-        text: `Post successfully prepared in ${publishMode.toUpperCase()} mode! (Phase 1 UI validated; full backend pipeline active in Phase 2)`,
+    setErrorMessage(null);
+    setUploadProgress(0);
+    setYoutubeChunkProgress(0);
+    setPipelineState("UPLOADING_LOCAL");
+    setPublishedUrl(null);
+
+    try {
+      const formData = new FormData();
+      formData.append("video", selectedVideo);
+      if (selectedThumbnail) {
+        formData.append("thumbnail", selectedThumbnail);
+      }
+      formData.append("title", postTitle);
+      formData.append("common_caption", commonCaption);
+      formData.append("hashtags", hashtags);
+      formData.append("privacy_status", privacyStatus);
+      formData.append("made_for_kids", madeForKids ? "true" : "false");
+      formData.append("category_id", categoryId);
+      formData.append("publish_now", "true");
+
+      const platformTargets = [
+        {
+          platform: "YOUTUBE",
+          account_id: selectedAccount.id,
+        },
+      ];
+      formData.append("platforms", JSON.stringify(platformTargets));
+
+      const res = await socialMediaService.uploadAndCreatePost(formData, (progressEvent) => {
+        if (progressEvent.total) {
+          const percent = Math.round((progressEvent.loaded * 100) / progressEvent.total);
+          setUploadProgress(percent);
+        }
       });
-    }, 600);
+
+      if (res.success && res.data) {
+        setPipelineState("QUEUED");
+        startStatusPolling(res.data.content_id);
+      } else {
+        setErrorMessage(res.error || "Upload failed.");
+        setPipelineState("FAILED");
+        setIsSubmitting(false);
+      }
+    } catch (err) {
+      setErrorMessage(err.response?.data?.error || "Failed to create post. Please try again.");
+      setPipelineState("FAILED");
+      setIsSubmitting(false);
+    }
   };
 
   return (
     <div className="sm-module-container">
-      <SocialMediaNav activeTab="create" />
+      <SocialMediaNav activeTab="create" onRefresh={fetchConnectedAccounts} loading={accountsLoading} />
 
-      {message && (
-        <div
-          style={{
-            padding: "12px 18px",
-            borderRadius: "12px",
-            fontSize: "13px",
-            fontWeight: "600",
-            display: "flex",
-            alignItems: "center",
-            gap: "10px",
-            background: message.type === "error" ? "rgba(239, 68, 68, 0.1)" : "rgba(16, 185, 129, 0.1)",
-            border: `1px solid ${message.type === "error" ? "rgba(239, 68, 68, 0.3)" : "rgba(16, 185, 129, 0.3)"}`,
-            color: message.type === "error" ? "#ef4444" : "#10b981",
-          }}
-        >
-          {message.type === "error" ? <AlertCircle size={18} /> : <CheckCircle2 size={18} />}
-          <span>{message.text}</span>
+      {/* Error loading accounts */}
+      {accountsError && (
+        <div className="sm-alert error" style={{ marginBottom: "20px" }}>
+          <AlertCircle size={18} />
+          <div>
+            <strong>Error Loading Accounts</strong>
+            <p style={{ margin: "4px 0 0 0", fontSize: "13px" }}>{accountsError}</p>
+          </div>
         </div>
       )}
 
-      <form onSubmit={handleSubmit} className="sm-create-layout">
-        {/* Left Column: Post Settings & Metadata */}
-        <div className="sm-form-section">
-          <div className="sm-form-group">
-            <label className="sm-form-label">
-              <span>01. Select Video Content (Short / Reel)</span>
-              <span className="sm-form-hint">MP4, MOV up to 500MB</span>
-            </label>
-            <label className="sm-dropzone">
-              <input
-                type="file"
-                accept="video/*"
-                onChange={handleVideoSelect}
-                style={{ display: "none" }}
-              />
-              <div className="sm-empty-icon-wrap">
-                <UploadCloud size={24} />
-              </div>
-              {selectedVideo ? (
-                <div>
-                  <strong style={{ color: "var(--accent-blue, #2563eb)" }}>
-                    {selectedVideo.name}
-                  </strong>
-                  <div style={{ fontSize: "11.5px", color: "var(--text-muted, #64748b)" }}>
-                    {(selectedVideo.size / (1024 * 1024)).toFixed(2)} MB • Ready for Omnichannel Broadcast
-                  </div>
-                </div>
-              ) : (
-                <div>
-                  <div style={{ fontWeight: "700", fontSize: "13.5px" }}>
-                    Click or Drag & Drop Video here
-                  </div>
-                  <div style={{ fontSize: "11.5px", color: "var(--text-muted, #64748b)" }}>
-                    Optimized for 9:16 Vertical Video (YouTube Shorts, IG Reels, FB Reels)
-                  </div>
-                </div>
-              )}
-            </label>
+      {/* Warning if YouTube account needs reconnecting */}
+      {selectedAccount && !selectedAccount.can_upload && (
+        <div className="sm-alert warning" style={{ marginBottom: "20px" }}>
+          <AlertCircle size={18} />
+          <div>
+            <strong>Action Required: Permission Upgrade</strong>
+            <p style={{ margin: "4px 0 0 0", fontSize: "13px" }}>
+              Your YouTube account ({selectedAccount.account_name}) is connected with read-only permissions from Phase 5.
+              Reconnect to grant upload permissions before publishing.
+            </p>
           </div>
+          <button
+            className="sm-btn-primary"
+            style={{ marginLeft: "auto", padding: "6px 12px", fontSize: "12px" }}
+            onClick={() => navigate("/social-media/accounts")}
+          >
+            Reconnect Account
+          </button>
+        </div>
+      )}
 
-          {/* Optional Custom Thumbnail */}
-          <div className="sm-form-group">
-            <label className="sm-form-label">
-              <span>02. Custom Thumbnail (Optional)</span>
-              <span className="sm-form-hint">JPG, PNG</span>
-            </label>
-            <input
-              type="file"
-              accept="image/*"
-              onChange={handleThumbnailSelect}
-              className="sm-input-text"
-            />
-            {selectedThumbnail && (
-              <span style={{ fontSize: "12px", color: "#10b981", fontWeight: "600" }}>
-                ✓ Selected: {selectedThumbnail.name}
-              </span>
+      {/* Warning if no accounts connected */}
+      {!accountsLoading && youtubeAccounts.length === 0 && (
+        <div className="sm-alert info" style={{ marginBottom: "20px" }}>
+          <AlertCircle size={18} />
+          <div>
+            <strong>No Connected YouTube Accounts</strong>
+            <p style={{ margin: "4px 0 0 0", fontSize: "13px" }}>
+              Connect your YouTube channel in Connected Accounts to start publishing Shorts and Videos.
+            </p>
+          </div>
+          <button
+            className="sm-btn-primary"
+            style={{ marginLeft: "auto", padding: "6px 12px", fontSize: "12px" }}
+            onClick={() => navigate("/social-media/accounts")}
+          >
+            Connect YouTube
+          </button>
+        </div>
+      )}
+
+      {/* Pipeline Status Banner */}
+      {pipelineState && (
+        <div className={`sm-pipeline-banner ${pipelineState.toLowerCase()}`} style={{ marginBottom: "20px" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+            {pipelineState === "PUBLISHED" ? (
+              <CheckCircle2 size={24} color="#16a34a" />
+            ) : pipelineState === "FAILED" ? (
+              <AlertCircle size={24} color="#dc2626" />
+            ) : (
+              <Loader2 size={24} className="sm-spin" color="#2563eb" />
             )}
-          </div>
-
-          {/* Target Platforms */}
-          <div className="sm-form-group">
-            <label className="sm-form-label">
-              <span>03. Target Publishing Platforms</span>
-              <span className="sm-form-hint">Select all that apply</span>
-            </label>
-            <div className="sm-platforms-select-row">
-              <button
-                type="button"
-                className={`sm-platform-checkbox-btn ${platforms.youtube ? "selected" : ""}`}
-                onClick={() => togglePlatform("youtube")}
-              >
-                <Youtube size={17} color="#ff0000" />
-                <span>YouTube</span>
-              </button>
-
-              <button
-                type="button"
-                className={`sm-platform-checkbox-btn ${platforms.instagram ? "selected" : ""}`}
-                onClick={() => togglePlatform("instagram")}
-              >
-                <Instagram size={17} color="#e1306c" />
-                <span>Instagram</span>
-              </button>
-
-              <button
-                type="button"
-                className={`sm-platform-checkbox-btn ${platforms.facebook ? "selected" : ""}`}
-                onClick={() => togglePlatform("facebook")}
-              >
-                <Facebook size={17} color="#1877f2" />
-                <span>Facebook</span>
-              </button>
+            <div>
+              <div style={{ fontWeight: "700", fontSize: "14px" }}>
+                {pipelineState === "UPLOADING_LOCAL" && "Uploading to LifeOS Secure Storage..."}
+                {pipelineState === "QUEUED" && "Queued for YouTube Publishing..."}
+                {pipelineState === "UPLOADING_YOUTUBE" && `Streaming Chunks to YouTube (${youtubeChunkProgress}%)...`}
+                {pipelineState === "PROCESSING_YOUTUBE" && "YouTube Processing & Finalizing..."}
+                {pipelineState === "PUBLISHED" && "Successfully Published to YouTube!"}
+                {pipelineState === "FAILED" && "Publishing Encountered an Error"}
+              </div>
+              <div style={{ fontSize: "12px", color: "var(--text-muted, #64748b)", marginTop: "2px" }}>
+                {pipelineState === "UPLOADING_LOCAL" && `Local progress: ${uploadProgress}%`}
+                {pipelineState === "UPLOADING_YOUTUBE" && `Resumable chunked upload: ${youtubeChunkProgress}% server-confirmed`}
+                {pipelineState === "PROCESSING_YOUTUBE" && "Awaiting YouTube processingDetails confirmation"}
+                {pipelineState === "PUBLISHED" && "Temporary video files have been safely deleted from server storage."}
+                {pipelineState === "FAILED" && (errorMessage || "Retry to resume from the last server-confirmed byte.")}
+              </div>
             </div>
           </div>
 
-          {/* Common Caption & Hashtags */}
-          <div className="sm-form-group">
-            <label className="sm-form-label">
-              <span>04. Master Caption</span>
-              <span className="sm-form-hint">Auto-fills platform tabs</span>
-            </label>
-            <textarea
-              className="sm-textarea"
-              placeholder="Write your captivating video caption..."
-              value={commonCaption}
-              onChange={(e) => {
-                setCommonCaption(e.target.value);
-                if (!instagramCaption) setInstagramCaption(e.target.value);
-                if (!facebookCaption) setFacebookCaption(e.target.value);
-                if (!youtubeDesc) setYoutubeDesc(e.target.value);
-              }}
-            />
-          </div>
-
-          <div className="sm-form-group">
-            <label className="sm-form-label">
-              <span>05. Hashtags</span>
-            </label>
-            <input
-              type="text"
-              className="sm-input-text"
-              value={hashtags}
-              onChange={(e) => setHashtags(e.target.value)}
-              placeholder="#shorts #reels #tech #ai"
-            />
-          </div>
-
-          {/* Platform Specific Customization Tabs */}
-          <div className="sm-form-group" style={{ marginTop: "6px" }}>
-            <label className="sm-form-label">
-              <span>06. Fine-Tune Platform Details</span>
-            </label>
-            <div style={{ display: "flex", gap: "8px", marginBottom: "10px" }}>
-              {platforms.youtube && (
-                <button
-                  type="button"
-                  className={`sm-tab-btn ${activePlatformTab === "youtube" ? "active" : ""}`}
-                  onClick={() => setActivePlatformTab("youtube")}
-                >
-                  <Youtube size={15} /> YouTube Shorts
-                </button>
-              )}
-              {platforms.instagram && (
-                <button
-                  type="button"
-                  className={`sm-tab-btn ${activePlatformTab === "instagram" ? "active" : ""}`}
-                  onClick={() => setActivePlatformTab("instagram")}
-                >
-                  <Instagram size={15} /> Instagram Reel
-                </button>
-              )}
-              {platforms.facebook && (
-                <button
-                  type="button"
-                  className={`sm-tab-btn ${activePlatformTab === "facebook" ? "active" : ""}`}
-                  onClick={() => setActivePlatformTab("facebook")}
-                >
-                  <Facebook size={15} /> Facebook Reel
-                </button>
-              )}
-            </div>
-
-            {activePlatformTab === "youtube" && platforms.youtube && (
-              <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
-                <input
-                  type="text"
-                  className="sm-input-text"
-                  placeholder="YouTube Video Title (Max 100 chars)"
-                  value={youtubeTitle}
-                  onChange={(e) => setYoutubeTitle(e.target.value)}
-                />
-                <textarea
-                  className="sm-textarea"
-                  placeholder="YouTube Description & Links"
-                  value={youtubeDesc || commonCaption}
-                  onChange={(e) => setYoutubeDesc(e.target.value)}
-                />
-              </div>
+          <div style={{ display: "flex", alignItems: "center", gap: "8px", marginLeft: "auto" }}>
+            {pipelineState === "PUBLISHED" && publishedUrl && (
+              <a
+                href={publishedUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="sm-btn-primary"
+                style={{ padding: "8px 14px", fontSize: "13px", display: "inline-flex", alignItems: "center", gap: "6px", textDecoration: "none" }}
+              >
+                <ExternalLink size={14} /> Watch on YouTube
+              </a>
             )}
-
-            {activePlatformTab === "instagram" && platforms.instagram && (
-              <textarea
-                className="sm-textarea"
-                placeholder="Instagram Reel Caption & Mentions"
-                value={instagramCaption || commonCaption}
-                onChange={(e) => setInstagramCaption(e.target.value)}
-              />
-            )}
-
-            {activePlatformTab === "facebook" && platforms.facebook && (
-              <textarea
-                className="sm-textarea"
-                placeholder="Facebook Page Reel Caption"
-                value={facebookCaption || commonCaption}
-                onChange={(e) => setFacebookCaption(e.target.value)}
-              />
-            )}
-          </div>
-
-          {/* Publishing Mode Selection */}
-          <div className="sm-form-group" style={{ marginTop: "10px" }}>
-            <label className="sm-form-label">
-              <span>07. Publishing Timeline</span>
-            </label>
-            <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
+            {pipelineState === "FAILED" && (
               <button
                 type="button"
-                className={`sm-platform-checkbox-btn ${publishMode === "now" ? "selected" : ""}`}
-                onClick={() => setPublishMode("now")}
-                style={{ flex: 1 }}
+                className="sm-btn-secondary"
+                onClick={handleRetry}
+                disabled={isSubmitting}
+                style={{ padding: "8px 14px", fontSize: "13px" }}
               >
-                <Send size={15} />
-                <span>Publish Now</span>
+                <RefreshCw size={14} style={{ marginRight: "6px" }} /> Retry
               </button>
-
-              <button
-                type="button"
-                className={`sm-platform-checkbox-btn ${publishMode === "schedule" ? "selected" : ""}`}
-                onClick={() => setPublishMode("schedule")}
-                style={{ flex: 1 }}
-              >
-                <Clock size={15} />
-                <span>Schedule Post</span>
-              </button>
-
-              <button
-                type="button"
-                className={`sm-platform-checkbox-btn ${publishMode === "draft" ? "selected" : ""}`}
-                onClick={() => setPublishMode("draft")}
-                style={{ flex: 1 }}
-              >
-                <Save size={15} />
-                <span>Save Draft</span>
-              </button>
-            </div>
-
-            {publishMode === "schedule" && (
-              <div style={{ marginTop: "12px" }}>
-                <label className="sm-form-label" style={{ fontSize: "12px", marginBottom: "4px" }}>
-                  Select Target Date & Time
-                </label>
-                <input
-                  type="datetime-local"
-                  className="sm-input-text"
-                  value={scheduleDateTime}
-                  onChange={(e) => setScheduleDateTime(e.target.value)}
-                  required
-                />
-              </div>
             )}
           </div>
+        </div>
+      )}
 
-          {/* Actions */}
-          <div className="sm-form-actions-row">
-            <button
-              type="button"
-              className="sm-btn-secondary"
-              onClick={() => navigate("/social-media")}
+      {errorMessage && !pipelineState && (
+        <div className="sm-alert error" style={{ marginBottom: "20px" }}>
+          <AlertCircle size={18} />
+          <div>{errorMessage}</div>
+        </div>
+      )}
+
+      <form onSubmit={handleSubmit}>
+        <div className="sm-create-split-grid">
+          {/* Left Column: Media Upload */}
+          <div className="sm-panel-card">
+            <h3 className="sm-panel-title">
+              <Film size={18} />
+              <span>01. Media Asset</span>
+            </h3>
+
+            {/* Video File Picker */}
+            <div
+              className={`sm-dropzone ${selectedVideo ? "has-file" : ""}`}
+              onClick={() => document.getElementById("video-file-input").click()}
             >
-              Cancel
-            </button>
+              <input
+                id="video-file-input"
+                type="file"
+                accept="video/mp4,video/quicktime,video/webm"
+                style={{ display: "none" }}
+                onChange={handleVideoSelect}
+              />
+              <UploadCloud size={36} color={selectedVideo ? "#2563eb" : "#94a3b8"} />
+              <div style={{ marginTop: "8px", fontWeight: "600", fontSize: "14px" }}>
+                {selectedVideo ? selectedVideo.name : "Select or Drop Video (MP4, MOV, WebM)"}
+              </div>
+              <div style={{ fontSize: "12px", color: "var(--text-muted, #64748b)", marginTop: "4px" }}>
+                {selectedVideo ? `${(selectedVideo.size / (1024 * 1024)).toFixed(1)} MB` : "Max 500 MB"}
+              </div>
+            </div>
+
+            {/* Optional Thumbnail Picker */}
+            <div style={{ marginTop: "16px" }}>
+              <label style={{ fontSize: "13px", fontWeight: "600", display: "block", marginBottom: "6px" }}>
+                Custom Thumbnail (Optional, Max 2 MB)
+              </label>
+              <div
+                className={`sm-dropzone-thumb ${selectedThumbnail ? "has-file" : ""}`}
+                onClick={() => document.getElementById("thumb-file-input").click()}
+              >
+                <input
+                  id="thumb-file-input"
+                  type="file"
+                  accept="image/jpeg,image/png"
+                  style={{ display: "none" }}
+                  onChange={handleThumbnailSelect}
+                />
+                <ImageIcon size={20} color={selectedThumbnail ? "#2563eb" : "#94a3b8"} />
+                <span style={{ fontSize: "12px", fontWeight: "500" }}>
+                  {selectedThumbnail ? selectedThumbnail.name : "Upload JPEG / PNG Thumbnail"}
+                </span>
+              </div>
+            </div>
+
+            {/* Target Platform & Account Picker */}
+            <div style={{ marginTop: "20px" }}>
+              <label style={{ fontSize: "13px", fontWeight: "600", display: "block", marginBottom: "8px" }}>
+                Target Platforms
+              </label>
+              <div className="sm-platforms-select-row">
+                <button
+                  type="button"
+                  className={`sm-platform-select-btn ${platforms.youtube ? "active" : ""}`}
+                  onClick={() => setPlatforms({ ...platforms, youtube: !platforms.youtube })}
+                >
+                  <Youtube size={16} /> YouTube
+                </button>
+                <button
+                  type="button"
+                  className="sm-platform-select-btn disabled"
+                  title="Phase 7 (Meta Integration)"
+                  disabled
+                >
+                  <Instagram size={16} /> Instagram (Phase 7)
+                </button>
+                <button
+                  type="button"
+                  className="sm-platform-select-btn disabled"
+                  title="Phase 7 (Meta Integration)"
+                  disabled
+                >
+                  <Facebook size={16} /> Facebook (Phase 7)
+                </button>
+              </div>
+
+              {/* YouTube Account Selection if multiple exist */}
+              {youtubeAccounts.length > 1 && (
+                <div style={{ marginTop: "12px" }}>
+                  <label style={{ fontSize: "12px", fontWeight: "600", display: "block", marginBottom: "4px" }}>
+                    Select YouTube Account
+                  </label>
+                  <select
+                    className="sm-form-input"
+                    value={selectedAccountId || ""}
+                    onChange={(e) => setSelectedAccountId(Number(e.target.value))}
+                  >
+                    {youtubeAccounts.map((acc) => (
+                      <option key={acc.id} value={acc.id}>
+                        {acc.account_name} ({acc.can_upload ? "Upload Ready" : "Reconnect Required"})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Right Column: Metadata & Settings */}
+          <div className="sm-panel-card">
+            <h3 className="sm-panel-title">
+              <span>02. Video Details & Privacy</span>
+            </h3>
+
+            {/* Title */}
+            <div style={{ marginBottom: "14px" }}>
+              <label style={{ fontSize: "13px", fontWeight: "600", display: "block", marginBottom: "4px" }}>
+                Video Title <span style={{ color: "#dc2626" }}>*</span>
+              </label>
+              <input
+                type="text"
+                className="sm-form-input"
+                placeholder="e.g. LifeOS Omnichannel Publishing Demo"
+                value={postTitle}
+                onChange={(e) => setPostTitle(e.target.value)}
+                maxLength={100}
+                required
+              />
+              <div style={{ fontSize: "11px", color: "var(--text-muted, #64748b)", textAlign: "right", marginTop: "2px" }}>
+                {postTitle.length} / 100 characters
+              </div>
+            </div>
+
+            {/* Description */}
+            <div style={{ marginBottom: "14px" }}>
+              <label style={{ fontSize: "13px", fontWeight: "600", display: "block", marginBottom: "4px" }}>
+                Description
+              </label>
+              <textarea
+                className="sm-form-textarea"
+                rows={4}
+                placeholder="Write a description for your video..."
+                value={commonCaption}
+                onChange={(e) => setCommonCaption(e.target.value)}
+                maxLength={5000}
+              />
+              <div style={{ fontSize: "11px", color: "var(--text-muted, #64748b)", textAlign: "right", marginTop: "2px" }}>
+                {commonCaption.length} / 5000 characters
+              </div>
+            </div>
+
+            {/* Tags */}
+            <div style={{ marginBottom: "14px" }}>
+              <label style={{ fontSize: "13px", fontWeight: "600", display: "block", marginBottom: "4px" }}>
+                Tags / Hashtags
+              </label>
+              <input
+                type="text"
+                className="sm-form-input"
+                placeholder="#coding #ai #productivity"
+                value={hashtags}
+                onChange={(e) => setHashtags(e.target.value)}
+              />
+            </div>
+
+            {/* Privacy & Audience */}
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px", marginBottom: "14px" }}>
+              <div>
+                <label style={{ fontSize: "13px", fontWeight: "600", display: "block", marginBottom: "4px" }}>
+                  Privacy Status
+                </label>
+                <select
+                  className="sm-form-input"
+                  value={privacyStatus}
+                  onChange={(e) => setPrivacyStatus(e.target.value)}
+                >
+                  <option value="PRIVATE">Private (Recommended for unverified APIs)</option>
+                  <option value="UNLISTED">Unlisted</option>
+                  <option value="PUBLIC">Public</option>
+                </select>
+              </div>
+
+              <div>
+                <label style={{ fontSize: "13px", fontWeight: "600", display: "block", marginBottom: "4px" }}>
+                  Category ID
+                </label>
+                <select
+                  className="sm-form-input"
+                  value={categoryId}
+                  onChange={(e) => setCategoryId(e.target.value)}
+                >
+                  <option value="22">People & Blogs (22)</option>
+                  <option value="28">Science & Technology (28)</option>
+                  <option value="27">Education (27)</option>
+                  <option value="24">Entertainment (24)</option>
+                </select>
+              </div>
+            </div>
+
+            {/* Made for Kids Checkbox */}
+            <div style={{ marginBottom: "20px" }}>
+              <label style={{ display: "flex", alignItems: "center", gap: "8px", fontSize: "13px", cursor: "pointer" }}>
+                <input
+                  type="checkbox"
+                  checked={madeForKids}
+                  onChange={(e) => setMadeForKids(e.target.checked)}
+                />
+                <span>This content is made for kids (COPPA compliance)</span>
+              </label>
+            </div>
+
+            {/* Submit Action */}
             <button
               type="submit"
               className="sm-btn-primary"
-              disabled={isSubmitting}
+              disabled={isSubmitting || !selectedVideo || !selectedAccount || !selectedAccount.can_upload}
+              style={{ width: "100%", padding: "12px", fontSize: "14px", fontWeight: "700" }}
             >
-              {publishMode === "now" && "🚀 Launch Omnichannel Broadcast"}
-              {publishMode === "schedule" && "⏰ Schedule Omnichannel Post"}
-              {publishMode === "draft" && "💾 Save as Draft"}
+              {isSubmitting ? (
+                <span style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "8px" }}>
+                  <Loader2 size={16} className="sm-spin" /> Publishing to YouTube...
+                </span>
+              ) : (
+                "🚀 Publish Video to YouTube"
+              )}
             </button>
-          </div>
-        </div>
-
-        {/* Right Column: Live Mobile Reel/Short Preview */}
-        <div className="sm-preview-sticky">
-          <div className="sm-phone-mockup">
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-              <span style={{ fontSize: "12px", fontWeight: "700", color: "var(--text-muted, #64748b)" }}>
-                <Smartphone size={14} style={{ display: "inline", verticalAlign: "middle", marginRight: "4px" }} />
-                Live Preview
-              </span>
-              <span style={{ fontSize: "11px", fontWeight: "700", color: "#ec4899" }}>
-                9:16 Vertical
-              </span>
-            </div>
-
-            <div className="sm-phone-screen">
-              <div className="sm-phone-overlay">
-                <div style={{ display: "flex", alignItems: "center", gap: "6px", marginBottom: "2px" }}>
-                  <div
-                    style={{
-                      width: "24px",
-                      height: "24px",
-                      borderRadius: "50%",
-                      background: "#ec4899",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      fontSize: "10px",
-                      fontWeight: "bold",
-                    }}
-                  >
-                    OS
-                  </div>
-                  <span style={{ fontSize: "12px", fontWeight: "700" }}>@abhishek.lifeos</span>
-                </div>
-                <div className="sm-phone-caption">
-                  {commonCaption || "Your engaging caption and story will appear right here..."}
-                </div>
-                <div style={{ fontSize: "11px", color: "#38bdf8", fontWeight: "600" }}>
-                  {hashtags}
-                </div>
-              </div>
-            </div>
-
-            <div style={{ fontSize: "11.5px", color: "var(--text-muted, #64748b)", textAlign: "center" }}>
-              Selected: {Object.keys(platforms).filter((k) => platforms[k]).join(", ") || "None"}
-            </div>
           </div>
         </div>
       </form>

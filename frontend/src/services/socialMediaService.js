@@ -2,34 +2,13 @@ import api from "./api";
 
 /**
  * Social Media Hub - API Service
- * Centralized client service for Social Media Dashboard, Post Creation, Calendar, Accounts, History & Analytics.
+ * Centralized client service for Social Media Dashboard, Post Creation, Accounts, History & Analytics.
  */
 export const socialMediaService = {
-  // 1. Get Social Media Hub Dashboard Summary (Metrics, Platform health, upcoming posts)
+  // 1. Get Social Media Hub Dashboard Summary
   getDashboardSummary: async () => {
-    try {
-      const response = await api.get("/api/social-media/dashboard");
-      return response.data;
-    } catch (err) {
-      // Phase 1 Safe Fallback (clean zero/empty initial state)
-      return {
-        success: true,
-        metrics: {
-          totalPublished: 0,
-          scheduledPosts: 0,
-          failedPosts: 0,
-          connectedPlatforms: 0,
-        },
-        platforms: {
-          youtube: { connected: false, channelName: null, status: "Not Connected" },
-          instagram: { connected: false, accountName: null, status: "Not Connected" },
-          facebook: { connected: false, pageName: null, status: "Not Connected" },
-        },
-        recentPosts: [],
-        upcomingSchedule: [],
-        bestPerforming: [],
-      };
-    }
+    const response = await api.get("/api/social-media/dashboard");
+    return response.data;
   },
 
   // 2. Get Connected Social Accounts
@@ -38,14 +17,9 @@ export const socialMediaService = {
     return response.data;
   },
 
-  // 3. Connect Account OAuth Start URLs
+  // 3. Connect Account OAuth Start URL
   getYouTubeConnectUrl: async () => {
     const response = await api.get("/api/social-media/connect/youtube");
-    return response.data;
-  },
-
-  getMetaConnectUrl: async () => {
-    const response = await api.get("/api/social-media/connect/meta");
     return response.data;
   },
 
@@ -55,54 +29,44 @@ export const socialMediaService = {
     return response.data;
   },
 
-  // 5. Content Management
-  getContentList: async (params = {}) => {
-    try {
-      const response = await api.get("/api/social-media/content", { params });
-      return response.data;
-    } catch (err) {
-      return {
-        success: true,
-        content: [],
-      };
-    }
-  },
-
-  getContentById: async (contentId) => {
-    const response = await api.get(`/api/social-media/content/${contentId}`);
-    return response.data;
-  },
-
-  createContent: async (formData) => {
-    const response = await api.post("/api/social-media/content", formData, {
-      headers: {
-        "Content-Type": "multipart/form-data",
-      },
+  // 5. Post Creation & Temporary Upload (Browser automatically adds multipart boundary)
+  uploadAndCreatePost: async (formData, onUploadProgress) => {
+    const response = await api.post("/api/social-media/upload", formData, {
+      onUploadProgress,
     });
     return response.data;
   },
 
-  publishContent: async (contentId) => {
-    const response = await api.post(`/api/social-media/content/${contentId}/publish`);
+  // 6. Content Status Polling
+  getContentStatus: async (contentId) => {
+    const response = await api.get(`/api/social-media/content/${contentId}/status`);
     return response.data;
   },
 
-  scheduleContent: async (contentId, scheduleData) => {
-    const response = await api.post(`/api/social-media/content/${contentId}/schedule`, scheduleData);
+  // 7. Publish to YouTube
+  publishYouTube: async (contentId) => {
+    const response = await api.post(`/api/social-media/content/${contentId}/publish/youtube`);
     return response.data;
   },
 
-  retryPost: async (postId) => {
-    const response = await api.post(`/api/social-media/posts/${postId}/retry`);
+  // 8. Retry YouTube Publishing
+  retryYouTubePublish: async (contentId) => {
+    const response = await api.post(`/api/social-media/content/${contentId}/retry/youtube`);
     return response.data;
   },
 
-  // 6. Analytics
+  // 9. Post History
+  getContentList: async (params = {}) => {
+    const response = await api.get("/api/social-media/history", { params });
+    return response.data;
+  },
+
+  // 10. Analytics Placeholder
   getAnalytics: async () => {
     try {
       const response = await api.get("/api/social-media/analytics");
       return response.data;
-    } catch (err) {
+    } catch {
       return {
         success: true,
         analytics: {
@@ -116,6 +80,16 @@ export const socialMediaService = {
         },
       };
     }
+  },
+
+  // Legacy/Helper aliases
+  getContentById: async (contentId) => {
+    const response = await api.get(`/api/social-media/content/${contentId}/status`);
+    return response.data;
+  },
+  retryPost: async (contentId) => {
+    const response = await api.post(`/api/social-media/content/${contentId}/retry/youtube`);
+    return response.data;
   },
 };
 

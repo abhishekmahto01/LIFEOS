@@ -1,6 +1,16 @@
+"""
+LifeOS — Social Media Hub Route Handlers (Thin Layer)
+Responsible only for:
+- JWT Authentication & Ownership validation
+- Strict input parsing and validation
+- Delegating to domain service functions
+- Returning sanitized JSON responses with HTTP status codes
+"""
+
 import json
 import urllib.parse
 from flask import Blueprint, request, jsonify, redirect
+
 from config import Config
 from utils.helpers import token_required
 from services.upload_service import (
@@ -17,8 +27,19 @@ from services.youtube_oauth_service import (
     get_user_social_accounts,
     disconnect_social_account
 )
+from services.youtube_publish_service import (
+    start_youtube_publish_task
+)
+from services.social_post_service import (
+    get_user_post_history,
+    get_user_dashboard_summary,
+    get_content_status_detail
+)
 
 social_blueprint = Blueprint("social", __name__, url_prefix="/api/social-media")
+
+VALID_PRIVACIES = {"PRIVATE", "UNLISTED", "PUBLIC"}
+
 
 # =============================================================================
 # 1. YouTube OAuth 2.0 Connection Routes
@@ -28,9 +49,8 @@ social_blueprint = Blueprint("social", __name__, url_prefix="/api/social-media")
 @token_required
 def connect_youtube_endpoint(current_user):
     """
-    Generate Google OAuth 2.0 authorization URL for YouTube read-only connection.
-    - Protected with JWT authentication.
-    - Generates and stores hashed single-use state tied to current_user.
+    Generate Google OAuth 2.0 authorization URL for YouTube connection.
+    - Generates and stores single-use state tied to current_user.
     """
     user_id = current_user.get("user_id")
     try:
@@ -44,14 +64,13 @@ def connect_youtube_endpoint(current_user):
     except Exception:
         return jsonify({"success": False, "error": "Failed to initialize Google OAuth connection."}), 500
 
+
 @social_blueprint.route("/oauth/youtube/callback", methods=["GET"])
 def youtube_oauth_callback_endpoint():
     """
     Google OAuth 2.0 callback endpoint.
-    - Does NOT require JWT header (browser redirect from Google).
     - Verifies user identity exclusively from validated single-use state.
-    - Redirects browser exclusively to trusted Config.FRONTEND_URL with safe fixed error/success codes.
-    - Never exposes tokens, secrets, exception objects, or internal details in URL parameters.
+    - Redirects browser to Config.FRONTEND_URL with sanitized status parameters.
     """
     state = request.args.get("state")
     code = request.args.get("code")
@@ -69,6 +88,7 @@ def youtube_oauth_callback_endpoint():
     except Exception:
         return redirect(f"{frontend_accounts_url}?status=error&code=oauth_failed")
 
+
 # =============================================================================
 # 2. Social Accounts Management Routes
 # =============================================================================
@@ -78,7 +98,6 @@ def youtube_oauth_callback_endpoint():
 def list_accounts_endpoint(current_user):
     """
     List connected social media accounts for the authenticated user.
-    Returns only safe public fields; never exposes tokens.
     """
     user_id = current_user.get("user_id")
     try:
@@ -90,15 +109,12 @@ def list_accounts_endpoint(current_user):
     except Exception:
         return jsonify({"success": False, "error": "Failed to retrieve connected accounts."}), 500
 
+
 @social_blueprint.route("/accounts/<int:account_id>", methods=["DELETE"])
 @token_required
 def disconnect_account_endpoint(current_user, account_id):
     """
-    Disconnect a connected social media account:
-    - Verifies ownership (rejects cross-user disconnection).
-    - Revokes Google OAuth token via POST body.
-    - Scrubs stored tokens and marks status DISCONNECTED.
-    - Idempotent: repeated calls succeed without error.
+    Disconnect a connected social media account.
     """
     user_id = current_user.get("user_id")
     try:
@@ -111,19 +127,18 @@ def disconnect_account_endpoint(current_user, account_id):
     except Exception:
         return jsonify({"success": False, "error": "Failed to disconnect account."}), 500
 
+
 # =============================================================================
-# 3. Temporary Upload & Lifecycle Routes
+# 3. Create Post & Resumable YouTube Publishing Routes
 # =============================================================================
 
 @social_blueprint.route("/upload", methods=["POST"])
 @token_required
 def upload_video_endpoint(current_user):
     """
-    Secure temporary upload endpoint:
-    - JWT-protected; extracts user_id strictly from verified token.
-    - Streams video into temp_uploads, validates magic bytes, MIME, and container structure.
-    - Atomically cleans up files on any validation or database error.
-    - Returns sanitized metadata without exposing internal filesystem details.
+    Secure temporary upload and post creation endpoint.
+    - Validates file, MIME, signature, and metadata constraints.
+    - If publish_now=true, automatically triggers background YouTube publishing task.
     """
     user_id = current_user.get("user_id")
     if not user_id:
@@ -140,9 +155,24 @@ def upload_video_endpoint(current_user):
     if not title:
         return jsonify({"success": False, "error": "Post title is required."}), 400
 
+    if len(title) > 100:
+        return jsonify({"success": False, "error": f"Post title exceeds YouTube limit of 100 characters (length: {len(title)})."}), 400
+
     common_caption = request.form.get("common_caption", "")
+    if len(common_caption) > 5000:
+        return jsonify({"success": False, "error": "Post description exceeds YouTube limit of 5000 characters."}), 400
+
     hashtags = request.form.get("hashtags", "")
     original_timezone = request.form.get("original_timezone", "UTC")
+
+    privacy_raw = request.form.get("privacy_status", "PRIVATE").strip().upper()
+    if privacy_raw not in VALID_PRIVACIES:
+        return jsonify({"success": False, "error": f"Invalid privacy status '{privacy_raw}'. Allowed: PRIVATE, UNLISTED, PUBLIC."}), 400
+    privacy_status = privacy_raw
+
+    made_for_kids = parse_strict_bool(request.form.get("made_for_kids", False))
+    publish_now = parse_strict_bool(request.form.get("publish_now", True))
+    category_id = request.form.get("category_id", "22").strip()
 
     platforms_raw = request.form.get("platforms")
     platforms = []
@@ -164,7 +194,7 @@ def upload_video_endpoint(current_user):
         if "thumbnail" in request.files and request.files["thumbnail"].filename:
             thumbnail_meta = validate_and_save_upload(request.files["thumbnail"], user_id, is_thumbnail=True)
 
-        # 3. Persist database record (rolls back and deletes files on failure)
+        # 3. Persist database record
         content_record = create_social_content_record(
             user_id=user_id,
             title=title,
@@ -173,8 +203,18 @@ def upload_video_endpoint(current_user):
             media_meta=media_meta,
             thumbnail_meta=thumbnail_meta,
             platforms=platforms,
-            original_timezone=original_timezone
+            original_timezone=original_timezone,
+            privacy_status=privacy_status,
+            made_for_kids=made_for_kids,
+            category_id=category_id
         )
+
+        content_id = content_record["content_id"]
+
+        # 4. If publish_now requested and YouTube target exists, launch background publishing task
+        has_youtube = any(p.get("platform") == "YOUTUBE" for p in content_record.get("platforms", []))
+        if publish_now and has_youtube:
+            start_youtube_publish_task(content_id=content_id, user_id=user_id)
 
         return jsonify({
             "success": True,
@@ -195,15 +235,105 @@ def upload_video_endpoint(current_user):
             safe_delete_temp_file(thumbnail_meta["media_filename"])
         return jsonify({"success": False, "error": "Failed to process upload. Please check your file and try again."}), 500
 
+
+@social_blueprint.route("/content/<int:content_id>/publish/youtube", methods=["POST"])
+@token_required
+def trigger_youtube_publish_endpoint(current_user, content_id):
+    """
+    Explicitly trigger or restart YouTube resumable publication for a content record.
+    """
+    user_id = current_user.get("user_id")
+    status_detail = get_content_status_detail(content_id=content_id, user_id=user_id)
+    if not status_detail.get("success"):
+        return jsonify(status_detail), status_detail.get("status_code", 400)
+
+    start_youtube_publish_task(content_id=content_id, user_id=user_id)
+    return jsonify({
+        "success": True,
+        "message": "YouTube publication task started.",
+        "content_id": content_id
+    }), 200
+
+
+@social_blueprint.route("/content/<int:content_id>/status", methods=["GET"])
+@token_required
+def get_content_status_endpoint(current_user, content_id):
+    """
+    Retrieve real-time publication progress and processing state for a post.
+    """
+    user_id = current_user.get("user_id")
+    status_detail = get_content_status_detail(content_id=content_id, user_id=user_id)
+    status_code = status_detail.pop("status_code", 200)
+    return jsonify(status_detail), status_code
+
+
+@social_blueprint.route("/content/<int:content_id>/retry/youtube", methods=["POST"])
+@token_required
+def retry_youtube_publish_endpoint(current_user, content_id):
+    """
+    Retry a failed YouTube publication. Resumes from offset or restarts session safely.
+    Checks temp file expiration before re-queuing.
+    """
+    user_id = current_user.get("user_id")
+    status_detail = get_content_status_detail(content_id=content_id, user_id=user_id)
+    if not status_detail.get("success"):
+        return jsonify(status_detail), status_detail.get("status_code", 400)
+
+    if not status_detail.get("media_valid_for_retry"):
+        return jsonify({
+            "success": False,
+            "error": "MEDIA_EXPIRED",
+            "message": "Temporary video media has expired or been purged. Please re-upload the video."
+        }), 410
+
+    start_youtube_publish_task(content_id=content_id, user_id=user_id)
+    return jsonify({
+        "success": True,
+        "message": "YouTube publication retry initiated.",
+        "content_id": content_id,
+        "retry_type": status_detail.get("retry_type", "FULL_VIDEO")
+    }), 200
+
+
+# =============================================================================
+# 4. Post History & Dashboard Routes
+# =============================================================================
+
+@social_blueprint.route("/history", methods=["GET"])
+@token_required
+def get_post_history_endpoint(current_user):
+    """
+    Retrieve user post history with platform details, video IDs, statuses, and watch URLs.
+    """
+    user_id = current_user.get("user_id")
+    status_filter = request.args.get("status")
+    page = int(request.args.get("page", 1))
+    limit = int(request.args.get("limit", 50))
+
+    result = get_user_post_history(user_id=user_id, status_filter=status_filter, page=page, limit=limit)
+    return jsonify(result), 200
+
+
+@social_blueprint.route("/dashboard", methods=["GET"])
+@token_required
+def get_dashboard_summary_endpoint(current_user):
+    """
+    Retrieve real KPI metrics and recent post summaries for the authenticated user.
+    """
+    user_id = current_user.get("user_id")
+    result = get_user_dashboard_summary(user_id=user_id)
+    return jsonify(result), 200
+
+
+# =============================================================================
+# 5. Cleanup & Maintenance Routes
+# =============================================================================
+
 @social_blueprint.route("/cleanup/<int:content_id>", methods=["POST"])
 @token_required
 def cleanup_media_endpoint(current_user, content_id):
     """
-    Secure manual/platform cleanup endpoint:
-    - JWT-protected; validates ownership before deletion.
-    - Idempotent: repeated calls succeed without error.
-    - Strict boolean validation for 'force'.
-    - Never deletes original files from user's machine.
+    Secure manual/platform cleanup endpoint.
     """
     user_id = current_user.get("user_id")
     data = request.get_json(silent=True) or {}
@@ -216,12 +346,12 @@ def cleanup_media_endpoint(current_user, content_id):
 
     return jsonify(result), 200
 
+
 @social_blueprint.route("/cleanup-expired", methods=["POST"])
 @token_required
 def cleanup_expired_endpoint(current_user):
     """
     Admin-only sweeper endpoint to trigger expired & orphan temporary file purging.
-    Non-admin authenticated users are rejected with 403 Forbidden.
     """
     username = current_user.get("username", "")
     user_id = current_user.get("user_id")

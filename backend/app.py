@@ -10,6 +10,7 @@ from routes.job_routes import job_blueprint
 from routes.discipline_routes import discipline_blueprint
 from routes.social_routes import social_blueprint
 from services.upload_service import cleanup_expired_and_orphan_files
+from services.youtube_publish_service import recover_pending_youtube_tasks
 
 app = Flask(__name__)
 app.config.from_object(Config)
@@ -37,8 +38,15 @@ init_db()
 # Run safe startup cleanup for stale/orphan temporary files
 try:
     cleanup_expired_and_orphan_files()
-except Exception as e:
-    print("Warning: Startup temporary file cleanup error:", e)
+except Exception:
+    pass
+
+# Run startup recovery for interrupted publishing tasks if worker enabled
+if Config.ENABLE_YOUTUBE_PUBLISH_WORKER:
+    try:
+        recover_pending_youtube_tasks()
+    except Exception:
+        pass
 
 # Register Blueprints
 app.register_blueprint(auth_blueprint)

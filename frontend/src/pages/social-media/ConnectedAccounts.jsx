@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import {
   Lock,
   CheckCircle2,
@@ -26,11 +26,8 @@ const OAUTH_ERROR_MESSAGES = {
 export function ConnectedAccounts() {
   const [accounts, setAccounts] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [banner, setBanner] = useState(null); // { type: 'success' | 'error', message: string }
-  const [actionLoading, setActionLoading] = useState(false);
-
-  useEffect(() => {
-    // 1. Process OAuth callback query parameters from URL
+  const [banner, setBanner] = useState(() => {
+    if (typeof window === "undefined") return null;
     const params = new URLSearchParams(window.location.search);
     const status = params.get("status");
     const platform = params.get("platform");
@@ -39,45 +36,82 @@ export function ConnectedAccounts() {
 
     if (status === "success") {
       const channelDisplay = channel ? `: ${channel}` : "";
-      setBanner({
+      return {
         type: "success",
         message: `Successfully connected ${platform ? platform.toUpperCase() : "YouTube"} channel${channelDisplay}!`,
-      });
-      window.history.replaceState({}, document.title, window.location.pathname);
+      };
     } else if (status === "error") {
       const errorMsg = OAUTH_ERROR_MESSAGES[errorCode] || "Failed to complete YouTube OAuth connection.";
-      setBanner({
+      return {
         type: "error",
         message: errorMsg,
+      };
+    }
+    return null;
+  });
+  const [actionLoading, setActionLoading] = useState(false);
+
+  const fetchAccounts = useCallback(() => {
+    setLoading(true);
+    socialMediaService
+      .getAccounts()
+      .then((res) => {
+        if (res.success) {
+          setAccounts(res.accounts || []);
+        } else {
+          setBanner({
+            type: "error",
+            message: res.error || "Failed to retrieve connected social accounts.",
+          });
+        }
+      })
+      .catch(() => {
+        setBanner({
+          type: "error",
+          message: "Failed to connect to backend server to load accounts.",
+        });
+      })
+      .finally(() => {
+        setLoading(false);
       });
+  }, []);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("status")) {
       window.history.replaceState({}, document.title, window.location.pathname);
     }
 
-    fetchAccounts();
-  }, []);
-
-  const fetchAccounts = async () => {
-    try {
-      setLoading(true);
-      const res = await socialMediaService.getAccounts();
-      if (res.success) {
-        setAccounts(res.accounts || []);
-      } else {
-        setBanner({
-          type: "error",
-          message: res.error || "Failed to retrieve connected social accounts.",
-        });
-      }
-    } catch (e) {
-      console.error("Error fetching accounts:", e);
-      setBanner({
-        type: "error",
-        message: "Failed to connect to backend server to load accounts.",
+    let ignore = false;
+    socialMediaService
+      .getAccounts()
+      .then((res) => {
+        if (!ignore) {
+          if (res.success) {
+            setAccounts(res.accounts || []);
+          } else {
+            setBanner({
+              type: "error",
+              message: res.error || "Failed to retrieve connected social accounts.",
+            });
+          }
+          setLoading(false);
+        }
+      })
+      .catch(() => {
+        if (!ignore) {
+          setBanner({
+            type: "error",
+            message: "Failed to connect to backend server to load accounts.",
+          });
+          setLoading(false);
+        }
       });
-    } finally {
-      setLoading(false);
-    }
-  };
+
+    return () => {
+      ignore = true;
+    };
+  }, []);
 
   const ytAccount = accounts.find(
     (a) => a.platform?.toUpperCase() === "YOUTUBE"
@@ -110,9 +144,10 @@ export function ConnectedAccounts() {
     }
     try {
       setActionLoading(true);
+      setBanner(null);
       const res = await socialMediaService.disconnectAccount(accountId);
       if (res.success) {
-        setBanner({ type: "success", message: `${platformName} disconnected successfully.` });
+        setBanner({ type: "success", message: `Successfully disconnected ${platformName}.` });
         await fetchAccounts();
       } else {
         setBanner({ type: "error", message: res.message || res.error || "Failed to disconnect account." });
@@ -130,7 +165,7 @@ export function ConnectedAccounts() {
 
   return (
     <div className="sm-module-container">
-      <SocialMediaNav activeTab="accounts" />
+      <SocialMediaNav activeTab="accounts" onRefresh={fetchAccounts} loading={loading} />
 
       {/* Notification Banner */}
       {banner && (
@@ -212,39 +247,58 @@ export function ConnectedAccounts() {
             </div>
             <span
               className={`sm-status-pill ${
-                isYtActive ? "connected" : isYtExpired ? "expired" : "not-connected"
+                isYtActive && ytAccount?.can_upload
+                  ? "connected"
+                  : isYtActive && !ytAccount?.can_upload
+                  ? "expired"
+                  : isYtExpired
+                  ? "expired"
+                  : "not-connected"
               }`}
             >
-              {isYtActive ? "Connected" : isYtExpired ? "Token Expired" : "Not Connected"}
+              {isYtActive && ytAccount?.can_upload
+                ? "Connected (Upload Ready)"
+                : isYtActive && !ytAccount?.can_upload
+                ? "Reconnect for Uploads"
+                : isYtExpired
+                ? "Token Expired"
+                : "Not Connected"}
             </span>
           </div>
 
           <div className="sm-platform-card-body">
             {ytAccount && (isYtActive || isYtExpired) ? (
-              <div style={{ display: "flex", alignItems: "center", gap: "12px", padding: "10px 0" }}>
-                {ytAccount.profile_image_url && (
-                  <img
-                    src={ytAccount.profile_image_url}
-                    alt={ytAccount.account_name}
-                    style={{ width: "42px", height: "42px", borderRadius: "50%", objectFit: "cover" }}
-                  />
-                )}
-                <div>
-                  <div style={{ fontSize: "14px", fontWeight: "700", color: "var(--text-primary, #0f172a)" }}>
-                    {ytAccount.account_name || "YouTube Channel"}
-                  </div>
-                  <div style={{ fontSize: "12px", color: "var(--text-muted, #64748b)" }}>
-                    {ytAccount.account_username ? `@${ytAccount.account_username}` : `Channel ID: ${ytAccount.platform_account_id}`}
+              <div style={{ display: "flex", flexDirection: "column", gap: "8px", padding: "10px 0" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+                  {ytAccount.profile_image_url && (
+                    <img
+                      src={ytAccount.profile_image_url}
+                      alt={ytAccount.account_name}
+                      style={{ width: "42px", height: "42px", borderRadius: "50%", objectFit: "cover" }}
+                    />
+                  )}
+                  <div>
+                    <div style={{ fontSize: "14px", fontWeight: "700", color: "var(--text-primary, #0f172a)" }}>
+                      {ytAccount.account_name || "YouTube Channel"}
+                    </div>
+                    <div style={{ fontSize: "12px", color: "var(--text-muted, #64748b)" }}>
+                      {ytAccount.account_username ? `@${ytAccount.account_username}` : `Channel ID: ${ytAccount.platform_account_id}`}
+                    </div>
                   </div>
                 </div>
+                {isYtActive && !ytAccount?.can_upload && (
+                  <div style={{ fontSize: "11.5px", color: "#d97706", background: "rgba(217, 119, 6, 0.1)", padding: "6px 10px", borderRadius: "8px" }}>
+                    ⚠️ <strong>Permission update:</strong> Click Reconnect to approve video publishing permissions (<code style={{ fontSize: "11px" }}>youtube.upload</code>).
+                  </div>
+                )}
               </div>
             ) : (
               <>
                 <div style={{ fontSize: "12px", color: "var(--text-muted, #64748b)", marginBottom: "6px" }}>
-                  <strong>Scope:</strong> YouTube Data API v3 (Read-Only Channel Verification)
+                  <strong>Scopes:</strong> YouTube Data API v3 (<code style={{ fontSize: "11px" }}>youtube.readonly</code>, <code style={{ fontSize: "11px" }}>youtube.upload</code>)
                 </div>
                 <div style={{ fontSize: "12px", color: "var(--text-secondary, #334155)" }}>
-                  Connect your official YouTube channel using secure Google OAuth 2.0 authorization.
+                  Connect your official YouTube channel using secure Google OAuth 2.0 authorization to enable one-click publishing.
                 </div>
               </>
             )}
