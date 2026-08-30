@@ -9,6 +9,9 @@ import {
   RefreshCw,
   ExternalLink,
   Loader2,
+  X,
+  History,
+  PlusCircle,
 } from "lucide-react";
 import { Youtube, Instagram, Facebook } from "../../components/social-media/PlatformIcons";
 import SocialMediaNav from "../../components/social-media/SocialMediaNav";
@@ -47,7 +50,10 @@ export function CreatePost() {
   const [publishedUrl, setPublishedUrl] = useState(null);
   const [errorMessage, setErrorMessage] = useState(null);
   const [youtubeChunkProgress, setYoutubeChunkProgress] = useState(0);
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
 
+  const videoInputRef = useRef(null);
+  const thumbInputRef = useRef(null);
   const pollTimeoutRef = useRef(null);
   const pollAttemptsRef = useRef(0);
   const isMountedRef = useRef(true);
@@ -116,6 +122,52 @@ export function CreatePost() {
     };
   }, []);
 
+  // Handle modal keyboard navigation & body overflow lock
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === "Escape" && showSuccessModal) {
+        setShowSuccessModal(false);
+      }
+    };
+    if (showSuccessModal) {
+      document.body.style.overflow = "hidden";
+      window.addEventListener("keydown", handleKeyDown);
+    }
+    return () => {
+      document.body.style.overflow = "";
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [showSuccessModal]);
+
+  const handleResetForm = useCallback(() => {
+    if (pollTimeoutRef.current) {
+      clearTimeout(pollTimeoutRef.current);
+    }
+    setSelectedVideo(null);
+    setSelectedThumbnail(null);
+    setPostTitle("");
+    setCommonCaption("");
+    setHashtags("#data #coding #analytics #lifeos");
+    setPrivacyStatus("PRIVATE");
+    setMadeForKids(false);
+    setCategoryId("22");
+    setUploadProgress(0);
+    setYoutubeChunkProgress(0);
+    setActiveContentId(null);
+    setPublishedUrl(null);
+    setErrorMessage(null);
+    setPipelineState(null);
+    setIsSubmitting(false);
+    setShowSuccessModal(false);
+
+    if (videoInputRef.current) {
+      videoInputRef.current.value = "";
+    }
+    if (thumbInputRef.current) {
+      thumbInputRef.current.value = "";
+    }
+  }, []);
+
   const youtubeAccounts = accounts.filter((a) => a.platform?.toUpperCase() === "YOUTUBE" && a.connection_status === "ACTIVE");
   const selectedAccount = youtubeAccounts.find((a) => String(a.id) === String(selectedAccountId)) || youtubeAccounts[0];
 
@@ -175,6 +227,7 @@ export function CreatePost() {
               setPipelineState("PUBLISHED");
               setPublishedUrl(ytPlat.platform_post_url);
               setIsSubmitting(false);
+              setShowSuccessModal(true);
               return;
             } else if (ytPlat.platform_status === "FAILED") {
               setPipelineState("FAILED");
@@ -214,6 +267,7 @@ export function CreatePost() {
 
     try {
       setIsSubmitting(true);
+      setShowSuccessModal(false);
       setErrorMessage(null);
       setPipelineState("QUEUED");
 
@@ -250,6 +304,7 @@ export function CreatePost() {
     }
 
     setIsSubmitting(true);
+    setShowSuccessModal(false);
     setErrorMessage(null);
     setUploadProgress(0);
     setYoutubeChunkProgress(0);
@@ -433,9 +488,10 @@ export function CreatePost() {
             {/* Video File Picker */}
             <div
               className={`sm-dropzone ${selectedVideo ? "has-file" : ""}`}
-              onClick={() => document.getElementById("video-file-input").click()}
+              onClick={() => videoInputRef.current?.click()}
             >
               <input
+                ref={videoInputRef}
                 id="video-file-input"
                 type="file"
                 accept="video/mp4,video/quicktime,video/webm"
@@ -458,9 +514,10 @@ export function CreatePost() {
               </label>
               <div
                 className={`sm-dropzone-thumb ${selectedThumbnail ? "has-file" : ""}`}
-                onClick={() => document.getElementById("thumb-file-input").click()}
+                onClick={() => thumbInputRef.current?.click()}
               >
                 <input
+                  ref={thumbInputRef}
                   id="thumb-file-input"
                   type="file"
                   accept="image/jpeg,image/png"
@@ -648,6 +705,101 @@ export function CreatePost() {
           </div>
         </div>
       </form>
+
+      {/* Publication Success Modal */}
+      {showSuccessModal && (
+        <div
+          className="sm-modal-backdrop"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) {
+              setShowSuccessModal(false);
+            }
+          }}
+        >
+          <div
+            className="sm-success-modal-dialog"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="sm-success-modal-title"
+            aria-describedby="sm-success-modal-desc"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              type="button"
+              className="sm-modal-close-btn"
+              onClick={() => setShowSuccessModal(false)}
+              aria-label="Close published success modal"
+            >
+              <X size={20} />
+            </button>
+
+            <div className="sm-celebration-container">
+              <div className="sm-celebration-pulse" />
+              <div className="sm-confetti-particle sm-confetti-1" />
+              <div className="sm-confetti-particle sm-confetti-2" />
+              <div className="sm-confetti-particle sm-confetti-3" />
+              <div className="sm-confetti-particle sm-confetti-4" />
+              <div className="sm-confetti-particle sm-confetti-5" />
+              <div className="sm-confetti-particle sm-confetti-6" />
+              <div className="sm-success-icon-badge">
+                <CheckCircle2 size={38} strokeWidth={2.5} />
+              </div>
+            </div>
+
+            <h2 id="sm-success-modal-title" className="sm-success-modal-title">
+              Video Published!
+            </h2>
+            <p id="sm-success-modal-desc" className="sm-success-modal-text">
+              Your video was uploaded and processed successfully by YouTube. It is now live on your channel. Temporary upload files have been safely deleted from server storage.
+            </p>
+
+            {postTitle && (
+              <div className="sm-success-video-card">
+                <div className="sm-success-video-info">
+                  <span className="sm-success-video-name">{postTitle}</span>
+                  <div className="sm-success-video-meta">
+                    <span className="sm-badge PUBLISHED">YouTube</span>
+                    <span>•</span>
+                    <span>{privacyStatus}</span>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            <div className="sm-modal-actions">
+              {publishedUrl && (
+                <a
+                  href={publishedUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="sm-btn-modal-primary"
+                >
+                  <ExternalLink size={16} /> Watch on YouTube
+                </a>
+              )}
+              <div className="sm-modal-actions-secondary-row">
+                <button
+                  type="button"
+                  className="sm-btn-modal-secondary"
+                  onClick={() => {
+                    setShowSuccessModal(false);
+                    navigate("/social-media/history");
+                  }}
+                >
+                  <History size={15} /> View Post History
+                </button>
+                <button
+                  type="button"
+                  className="sm-btn-modal-secondary"
+                  onClick={handleResetForm}
+                >
+                  <PlusCircle size={15} /> Create Another Post
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
