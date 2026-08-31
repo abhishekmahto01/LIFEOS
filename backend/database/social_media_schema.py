@@ -234,6 +234,7 @@ def create_social_media_schema(conn):
             ALTER TABLE social_content_platforms ADD COLUMN IF NOT EXISTS claim_expires_at TIMESTAMP WITH TIME ZONE;
             ALTER TABLE social_content_platforms ADD COLUMN IF NOT EXISTS next_processing_check_at TIMESTAMP WITH TIME ZONE;
             ALTER TABLE social_content_platforms ADD COLUMN IF NOT EXISTS processing_check_count INTEGER NOT NULL DEFAULT 0;
+            ALTER TABLE social_content_platforms ADD COLUMN IF NOT EXISTS meta_container_id VARCHAR(255);
         """)
 
         # Constraints for social_content_platforms

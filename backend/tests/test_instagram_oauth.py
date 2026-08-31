@@ -54,6 +54,9 @@ class TestInstagramOAuth(unittest.TestCase):
             ON CONFLICT (user_id) DO UPDATE SET is_active = TRUE, user_name = EXCLUDED.user_name;
         """)
         # Clean test social accounts and states for pristine test isolation
+        cur.execute("DELETE FROM social_publish_attempts;")
+        cur.execute("DELETE FROM social_content_platforms;")
+        cur.execute("DELETE FROM social_content;")
         cur.execute("DELETE FROM oauth_states WHERE platform IN ('INSTAGRAM', 'META');")
         cur.execute("DELETE FROM social_accounts WHERE platform = 'INSTAGRAM';")
         conn.commit()

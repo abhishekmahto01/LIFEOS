@@ -149,9 +149,12 @@ class Config:
         ).split(",") if scope.strip()
     ]
 
-    # Instagram Reel Publishing Configuration (Stage 7A)
+    # Instagram Reel Publishing Configuration (Stage 7A & 7B)
     INSTAGRAM_MEDIA_BASE_URL = os.getenv("INSTAGRAM_MEDIA_BASE_URL", "").rstrip("/")
     INSTAGRAM_PUBLISH_POLL_INTERVAL_SECONDS = _parse_float_config("INSTAGRAM_PUBLISH_POLL_INTERVAL_SECONDS", 2.0, min_val=0.1, max_val=60.0)
     INSTAGRAM_PUBLISH_MAX_WAIT_SECONDS = _parse_int_config("INSTAGRAM_PUBLISH_MAX_WAIT_SECONDS", 60, min_val=5, max_val=600)
+    INSTAGRAM_MAX_PUBLISH_RETRIES = _parse_int_config("INSTAGRAM_MAX_PUBLISH_RETRIES", 3, min_val=1, max_val=20)
+    INSTAGRAM_PUBLISH_LEASE_SECONDS = _parse_int_config("INSTAGRAM_PUBLISH_LEASE_SECONDS", 300, min_val=30, max_val=3600)
+
 
 

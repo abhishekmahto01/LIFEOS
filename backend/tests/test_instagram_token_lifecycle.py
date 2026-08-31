@@ -54,6 +54,9 @@ class TestInstagramTokenLifecycle(unittest.TestCase):
             ON CONFLICT (user_id) DO UPDATE SET is_active = TRUE;
         """)
         # Clean Instagram accounts and states
+        cur.execute("DELETE FROM social_publish_attempts;")
+        cur.execute("DELETE FROM social_content_platforms;")
+        cur.execute("DELETE FROM social_content;")
         cur.execute("DELETE FROM oauth_states WHERE platform IN ('INSTAGRAM', 'META');")
         cur.execute("DELETE FROM social_accounts WHERE platform = 'INSTAGRAM';")
         conn.commit()

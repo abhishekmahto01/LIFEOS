@@ -419,6 +419,66 @@ def publish_instagram_content_endpoint(current_user, content_id):
     return jsonify(res), status_code
 
 
+@social_blueprint.route("/content/<int:content_id>/retry/instagram", methods=["POST"])
+@token_required
+def retry_instagram_publish_endpoint(current_user, content_id):
+    """
+    Retry a failed Instagram publication.
+    Validates user ownership and temp media validity before re-trying.
+    """
+    user_id = current_user.get("user_id")
+    data = request.get_json(silent=True) or {}
+    account_id = data.get("account_id")
+    custom_video_url = data.get("video_url") or data.get("custom_video_url")
+
+    # If account_id not provided, find from existing social_content_platforms row
+    if not account_id:
+        conn = None
+        cur = None
+        try:
+            conn = get_connection()
+            cur = conn.cursor()
+            cur.execute("""
+                SELECT account_id, platform_status
+                FROM social_content_platforms
+                WHERE content_id = %s AND platform = 'INSTAGRAM';
+            """, (content_id,))
+            row = cur.fetchone()
+            if not row:
+                return jsonify({"success": False, "error": "No Instagram publication target found for this content."}), 404
+            account_id = row[0]
+            p_status = row[1]
+            if p_status == "PUBLISHED":
+                return jsonify({"success": True, "message": "Instagram post is already published.", "already_published": True}), 200
+        finally:
+            if cur:
+                cur.close()
+            if conn:
+                conn.close()
+
+    status_detail = get_content_status_detail(content_id=content_id, user_id=user_id)
+    if not status_detail.get("success"):
+        return jsonify(status_detail), status_detail.get("status_code", 400)
+
+    if not status_detail.get("media_valid_for_retry"):
+        return jsonify({
+            "success": False,
+            "error": "MEDIA_EXPIRED",
+            "message": "Temporary video media has expired or been purged. Please re-upload the video."
+        }), 410
+
+    res = publish_instagram_reel(
+        user_id=user_id,
+        content_id=content_id,
+        account_id=account_id,
+        custom_video_url=custom_video_url,
+        is_retry=True
+    )
+    status_code = res.pop("status_code", 200 if res.get("success") else 400)
+    return jsonify(res), status_code
+
+
+
 @social_blueprint.route("/public-media/<int:content_id>/<filename>", methods=["GET"])
 def stream_public_media_endpoint(content_id, filename):
     """
