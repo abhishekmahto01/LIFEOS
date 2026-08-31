@@ -54,40 +54,18 @@ LIFEOS/
   ```bash
   npm run build:frontend
   ```
+- **Run Automated Test Suite:**
+  ```bash
+  npm run test:backend
+  # or: source venv/bin/activate && pytest
+  ```
 
-### Individual Service Scripts
+---
 
-- **Run only Backend:**
-  ```bash
-  npm run backend
-  ```
-- **Run only Frontend:**
-  ```bash
-  npm run frontend
-  ```
-- **Install All Dependencies:**
-  ```bash
-  npm run install:all
-  ```
-- **Build Frontend:**
-  ```bash
-  npm run build:frontend
-  ```
-### Individual Service Scripts
+## 📚 Integration & Setup Guides
 
-- **Run only Backend:**
-  ```bash
-  npm run backend
-  ```
-- **Run only Frontend:**
-  ```bash
-  npm run frontend
-  ```
-- **Install All Dependencies:**
-  ```bash
-  npm run install:all
-  ```
-- **Build Frontend:**
-  ```bash
-  npm run build:frontend
-  ```
+Comprehensive step-by-step guides for connecting social media platforms to the LifeOS Social Media Hub:
+
+- **YouTube OAuth 2.0 & Publishing Setup**: [docs/YOUTUBE_OAUTH_SETUP.md](docs/YOUTUBE_OAUTH_SETUP.md) & [docs/YOUTUBE_PUBLISHING_GUIDE.md](docs/YOUTUBE_PUBLISHING_GUIDE.md)
+- **Meta & Instagram Graph API Setup**: [docs/INSTAGRAM_SETUP_GUIDE.md](docs/INSTAGRAM_SETUP_GUIDE.md)
+

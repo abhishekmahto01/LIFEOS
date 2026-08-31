@@ -124,7 +124,28 @@ class Config:
     YOUTUBE_PUBLISH_LEASE_SECONDS = _parse_int_config("YOUTUBE_PUBLISH_LEASE_SECONDS", 300, min_val=60, max_val=3600)
     ENABLE_YOUTUBE_PUBLISH_WORKER = _parse_bool_config("ENABLE_YOUTUBE_PUBLISH_WORKER", True)
 
-    # Meta Graph API (Facebook / Instagram)
-    META_APP_ID = os.getenv("META_APP_ID", "")
-    META_APP_SECRET = os.getenv("META_APP_SECRET", "")
-    META_REDIRECT_URI = os.getenv("META_REDIRECT_URI", "http://localhost:5000/api/social-media/oauth/meta/callback")
+    # Meta & Instagram Graph API Configuration (Phase 6 / Stage 6A)
+    INSTAGRAM_CLIENT_ID = os.getenv("INSTAGRAM_CLIENT_ID", os.getenv("META_APP_ID", ""))
+    INSTAGRAM_CLIENT_SECRET = os.getenv("INSTAGRAM_CLIENT_SECRET", os.getenv("META_APP_SECRET", ""))
+    INSTAGRAM_REDIRECT_URI = os.getenv(
+        "INSTAGRAM_REDIRECT_URI",
+        os.getenv("META_REDIRECT_URI", "http://localhost:5000/api/social-media/oauth/instagram/callback")
+    )
+
+    # Backward compatibility aliases for Meta Graph API
+    META_APP_ID = INSTAGRAM_CLIENT_ID
+    META_APP_SECRET = INSTAGRAM_CLIENT_SECRET
+    META_REDIRECT_URI = INSTAGRAM_REDIRECT_URI
+
+    # Meta Graph API Versioning (Do not hardcode versions in business logic)
+    META_GRAPH_API_VERSION = os.getenv("META_GRAPH_API_VERSION", "v21.0")
+    META_GRAPH_API_BASE_URL = os.getenv("META_GRAPH_API_BASE_URL", "https://graph.facebook.com").rstrip("/")
+
+    # Configurable Instagram OAuth scopes
+    INSTAGRAM_SCOPES = [
+        scope.strip() for scope in os.getenv(
+            "INSTAGRAM_SCOPES",
+            "instagram_basic,instagram_content_publish,pages_show_list,pages_read_engagement,business_management"
+        ).split(",") if scope.strip()
+    ]
+

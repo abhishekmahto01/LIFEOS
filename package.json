@@ -10,7 +10,8 @@
     "frontend": "npm run dev --prefix frontend",
     "build:frontend": "npm run build --prefix frontend",
     "install:frontend": "npm install --prefix frontend",
-    "install:all": "npm install && npm run install:frontend"
+    "install:all": "npm install && npm run install:frontend",
+    "test:backend": "bash -c 'source venv/bin/activate && pytest'"
   },
   "devDependencies": {
     "concurrently": "^9.1.2"
