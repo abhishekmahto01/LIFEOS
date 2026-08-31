@@ -55,3 +55,22 @@ LIFEOS/
   npm run build:frontend
   ```
 
+### Individual Service Scripts
+
+- **Run only Backend:**
+  ```bash
+  npm run backend
+  ```
+- **Run only Frontend:**
+  ```bash
+  npm run frontend
+  ```
+- **Install All Dependencies:**
+  ```bash
+  npm run install:all
+  ```
+- **Build Frontend:**
+  ```bash
+  npm run build:frontend
+  ```
+
