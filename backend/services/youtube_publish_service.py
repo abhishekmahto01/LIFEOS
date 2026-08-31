@@ -1341,7 +1341,7 @@ def _schedule_next_processing_check(scpid: int, user_id: int, claim_token: str, 
             conn.close()
 
 
-def _finalize_publication_success(scpid: int, user_id: int, claim_token: str, cid: int, temp_media_path: str) -> bool:
+def _finalize_publication_success(scpid: int, user_id: int, claim_token: str, cid: int, temp_media_path: str, defer_media_cleanup: bool = False) -> bool:
     if not claim_token or not str(claim_token).strip():
         return False
     conn = None
@@ -1372,24 +1372,183 @@ def _finalize_publication_success(scpid: int, user_id: int, claim_token: str, ci
         conn.commit()
         recalculate_content_overall_status(cid)
 
-        # Only attempt physical video deletion after successful fenced DB update
-        if temp_media_path:
-            del_res = safe_delete_temp_file(temp_media_path)
-            if del_res.get("removed"):
-                cur.execute("""
-                    UPDATE social_content
-                    SET temp_media_path = NULL,
-                        temp_file_deleted = CASE WHEN temp_thumbnail_path IS NULL THEN TRUE ELSE temp_file_deleted END,
-                        temp_file_deleted_at = CASE WHEN temp_thumbnail_path IS NULL THEN CURRENT_TIMESTAMP ELSE temp_file_deleted_at END
-                    WHERE id = %s AND user_id = %s;
-                """, (cid, user_id))
-                conn.commit()
+        # Only attempt physical video deletion if not deferred and no other pending/processing platform targets exist
+        if temp_media_path and not defer_media_cleanup:
+            cur.execute("""
+                SELECT COUNT(*)
+                FROM social_content_platforms
+                WHERE content_id = %s AND id != %s AND platform_status NOT IN ('PUBLISHED', 'CANCELLED');
+            """, (cid, scpid))
+            other_pending_count = cur.fetchone()[0]
+
+            if other_pending_count == 0:
+                del_res = safe_delete_temp_file(temp_media_path)
+                if del_res.get("removed"):
+                    cur.execute("""
+                        UPDATE social_content
+                        SET temp_media_path = NULL,
+                            temp_file_deleted = CASE WHEN temp_thumbnail_path IS NULL THEN TRUE ELSE temp_file_deleted END,
+                            temp_file_deleted_at = CASE WHEN temp_thumbnail_path IS NULL THEN CURRENT_TIMESTAMP ELSE temp_file_deleted_at END
+                        WHERE id = %s AND user_id = %s;
+                    """, (cid, user_id))
+                    conn.commit()
         return True
     finally:
         if cur:
             cur.close()
         if conn:
             conn.close()
+
+
+def publish_youtube(user_id: int, content_id: int, account_id: int, options: dict = None, defer_media_cleanup: bool = True) -> dict:
+    """
+    Synchronously orchestrates publication of a content record to YouTube:
+    1. Validates ownership and account status.
+    2. Upserts/claims social_content_platforms row with options (privacy_status, category_id, made_for_kids).
+    3. If already PUBLISHED, returns existing publication immediately (idempotency).
+    4. Executes publishing pipeline.
+    5. Returns sanitized standardized result dictionary.
+    """
+    if not user_id:
+        return {"success": False, "error": "User authentication required.", "platform": "YOUTUBE", "account_id": account_id}
+    if not content_id or not isinstance(content_id, int) or content_id <= 0:
+        return {"success": False, "error": "Valid content ID required.", "platform": "YOUTUBE", "account_id": account_id}
+    if not account_id or not isinstance(account_id, int) or account_id <= 0:
+        return {"success": False, "error": "Valid account ID required.", "platform": "YOUTUBE", "account_id": account_id}
+
+    options = options or {}
+    privacy_status = str(options.get("privacy_status", "PUBLIC")).upper()
+    if privacy_status not in ("PUBLIC", "PRIVATE", "UNLISTED"):
+        privacy_status = "PUBLIC"
+    category_id = str(options.get("category_id", "22")).strip() or "22"
+    made_for_kids = bool(options.get("made_for_kids", False))
+
+    conn = None
+    cur = None
+    scp_id = None
+    try:
+        conn = get_connection()
+        cur = conn.cursor()
+
+        # 1. Verify content ownership and media presence
+        cur.execute("""
+            SELECT id, user_id, title, common_caption, hashtags, temp_media_path, temp_file_deleted, temp_file_expires_at
+            FROM social_content
+            WHERE id = %s AND user_id = %s;
+        """, (content_id, user_id))
+        c_row = cur.fetchone()
+        if not c_row:
+            return {"success": False, "error": "Content not found or access denied.", "platform": "YOUTUBE", "account_id": account_id}
+
+        cid, uid, title, caption, tags, temp_media, temp_deleted, expires_at = c_row
+        if temp_deleted or not temp_media:
+            return {"success": False, "error": "Temporary video media has been deleted or purged.", "platform": "YOUTUBE", "account_id": account_id}
+
+        now_utc = datetime.datetime.now(datetime.timezone.utc)
+        if expires_at:
+            if expires_at.tzinfo is None:
+                expires_at = expires_at.replace(tzinfo=datetime.timezone.utc)
+            if expires_at <= now_utc:
+                return {"success": False, "error": "Temporary video media has expired.", "platform": "YOUTUBE", "account_id": account_id}
+
+        # 2. Verify account
+        cur.execute("""
+            SELECT id, user_id, platform, connection_status
+            FROM social_accounts
+            WHERE id = %s AND user_id = %s;
+        """, (account_id, user_id))
+        acc_row = cur.fetchone()
+        if not acc_row:
+            return {"success": False, "error": "YouTube account not found or access denied.", "platform": "YOUTUBE", "account_id": account_id}
+
+        aid, a_uid, plat, conn_status = acc_row
+        if plat != "YOUTUBE":
+            return {"success": False, "error": f"Selected account is not a YouTube account ({plat}).", "platform": "YOUTUBE", "account_id": account_id}
+        if conn_status != "ACTIVE":
+            return {"success": False, "error": f"YouTube account connection is in {conn_status} state. Please reconnect.", "platform": "YOUTUBE", "account_id": account_id}
+
+        # 3. Upsert social_content_platforms
+        cur.execute("""
+            INSERT INTO social_content_platforms (
+                content_id, account_id, platform, custom_title, custom_caption,
+                privacy_status, category_id, made_for_kids, platform_status,
+                processing_status, last_attempt_at, updated_at
+            )
+            VALUES (
+                %s, %s, 'YOUTUBE', %s, %s,
+                %s, %s, %s, 'PENDING',
+                'IDLE', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
+            )
+            ON CONFLICT (content_id, platform, account_id) DO UPDATE SET
+                privacy_status = EXCLUDED.privacy_status,
+                category_id = EXCLUDED.category_id,
+                made_for_kids = EXCLUDED.made_for_kids,
+                updated_at = CURRENT_TIMESTAMP
+            RETURNING id, platform_status, platform_post_id, platform_post_url;
+        """, (cid, aid, title, caption, privacy_status, category_id, made_for_kids))
+        scp_row = cur.fetchone()
+        scp_id, p_status, post_id, post_url = scp_row
+        conn.commit()
+
+        # Idempotency: If already published, return immediately
+        if p_status == "PUBLISHED":
+            return {
+                "success": True,
+                "platform": "YOUTUBE",
+                "account_id": account_id,
+                "publish_status": "PUBLISHED",
+                "publish_id": post_id,
+                "publish_url": post_url or (f"https://www.youtube.com/watch?v={post_id}" if post_id else None),
+                "already_published": True
+            }
+
+    finally:
+        if cur:
+            cur.close()
+        if conn:
+            conn.close()
+
+    # 4. Execute pipeline
+    execute_youtube_publish_pipeline(content_id=content_id, user_id=user_id)
+
+    # 5. Fetch final status
+    conn = None
+    cur = None
+    try:
+        conn = get_connection()
+        cur = conn.cursor()
+        cur.execute("""
+            SELECT platform_status, platform_post_id, platform_post_url, error_message
+            FROM social_content_platforms
+            WHERE id = %s;
+        """, (scp_id,))
+        final_row = cur.fetchone()
+        if final_row:
+            p_status, post_id, post_url, err_msg = final_row
+            is_success = (p_status == "PUBLISHED")
+            return {
+                "success": is_success,
+                "platform": "YOUTUBE",
+                "account_id": account_id,
+                "publish_status": p_status,
+                "publish_id": post_id,
+                "publish_url": post_url or (f"https://www.youtube.com/watch?v={post_id}" if post_id else None),
+                "already_published": False,
+                "error": err_msg if not is_success else None
+            }
+        return {
+            "success": False,
+            "platform": "YOUTUBE",
+            "account_id": account_id,
+            "publish_status": "FAILED",
+            "error": "Failed to read final YouTube status."
+        }
+    finally:
+        if cur:
+            cur.close()
+        if conn:
+            conn.close()
+
 
 
 def _finalize_publication_failure(scpid: int, user_id: int, claim_token: str, cid: int, error_code: str, error_msg: str) -> bool:

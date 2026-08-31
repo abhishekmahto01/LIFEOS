@@ -41,6 +41,9 @@ from services.youtube_publish_service import (
 from services.instagram_publish_service import (
     publish_instagram_reel
 )
+from services.social_publish_service import (
+    publish_content_to_platforms
+)
 from services.social_post_service import (
     get_user_post_history,
     get_user_dashboard_summary,
@@ -356,7 +359,51 @@ def retry_youtube_publish_endpoint(current_user, content_id):
 
 
 # =============================================================================
-# 3B. Instagram Reel Publishing Routes (Stage 7A)
+# 3B. Unified Multi-Platform Publishing Routes (Stage 8)
+# =============================================================================
+
+@social_blueprint.route("/publish", methods=["POST"])
+@token_required
+def unified_publish_endpoint(current_user):
+    """
+    Unified multi-platform publishing endpoint (Stage 8).
+    Accepts JSON body:
+    {
+        "content_id": 123,
+        "targets": [
+            {"platform": "YOUTUBE", "account_id": 10, "options": {"privacy_status": "PUBLIC"}},
+            {"platform": "INSTAGRAM", "account_id": 12}
+        ]
+    }
+    """
+    user_id = current_user.get("user_id")
+    data = request.get_json(silent=True) or {}
+    content_id = data.get("content_id")
+    targets = data.get("targets")
+    if targets is None:
+        targets = data.get("platform_targets")
+
+    if content_id is None:
+        return jsonify({"success": False, "error": "content_id is required."}), 400
+    if not isinstance(content_id, int) or content_id <= 0:
+        return jsonify({"success": False, "error": "content_id must be a positive integer."}), 400
+
+    if targets is None:
+        return jsonify({"success": False, "error": "targets list is required."}), 400
+    if not isinstance(targets, list) or len(targets) == 0:
+        return jsonify({"success": False, "error": "targets list cannot be empty."}), 400
+
+    res = publish_content_to_platforms(
+        user_id=user_id,
+        content_id=content_id,
+        platform_targets=targets
+    )
+    status_code = res.pop("status_code", 200 if res.get("success") else 400)
+    return jsonify(res), status_code
+
+
+# =============================================================================
+# 3C. Instagram Reel Publishing Routes (Stage 7A & 7B)
 # =============================================================================
 
 @social_blueprint.route("/publish/instagram", methods=["POST"])
