@@ -17,9 +17,14 @@ export const socialMediaService = {
     return response.data;
   },
 
-  // 3. Connect Account OAuth Start URL
+  // 3. Connect Account OAuth Start URLs
   getYouTubeConnectUrl: async () => {
     const response = await api.get("/api/social-media/connect/youtube");
+    return response.data;
+  },
+
+  getInstagramConnectUrl: async () => {
+    const response = await api.get("/api/social-media/connect/instagram");
     return response.data;
   },
 

@@ -12,15 +12,16 @@ import { socialMediaService } from "../../services/socialMediaService";
 import "./SocialMedia.css";
 
 const OAUTH_ERROR_MESSAGES = {
-  oauth_denied: "Google OAuth authorization was cancelled or denied.",
+  oauth_denied: "OAuth authorization was cancelled or denied.",
   invalid_state: "Invalid or unrecognized authorization session.",
   state_expired: "Authorization session expired. Please click Connect to try again.",
   state_already_used: "This authorization session has already been used.",
   redirect_uri_mismatch: "OAuth redirect URI configuration mismatch.",
-  token_exchange_failed: "Failed to exchange authorization code with Google.",
-  scope_not_granted: "Required YouTube read-only permission was not granted.",
+  token_exchange_failed: "Failed to exchange authorization code with provider.",
+  scope_not_granted: "Required permission scopes were not granted.",
   channel_not_found: "No YouTube channel found for this Google account. Please create a YouTube channel on youtube.com first.",
-  oauth_failed: "An unexpected error occurred while connecting your YouTube channel.",
+  instagram_account_not_found: "No Instagram Professional account found. Please verify your Instagram Business/Creator account is linked to a Facebook Page.",
+  oauth_failed: "An unexpected error occurred while completing the OAuth connection.",
 };
 
 export function ConnectedAccounts() {
@@ -33,15 +34,17 @@ export function ConnectedAccounts() {
     const platform = params.get("platform");
     const channel = params.get("channel");
     const errorCode = params.get("code");
+    const igParam = params.get("instagram");
 
-    if (status === "success") {
-      const channelDisplay = channel ? `: ${channel}` : "";
+    if (status === "success" || igParam === "connected") {
+      const platformName = platform ? platform.toUpperCase() : igParam === "connected" ? "INSTAGRAM" : "YOUTUBE";
+      const channelDisplay = channel ? `: ${decodeURIComponent(channel)}` : "";
       return {
         type: "success",
-        message: `Successfully connected ${platform ? platform.toUpperCase() : "YouTube"} channel${channelDisplay}!`,
+        message: `Successfully connected ${platformName === "INSTAGRAM" ? "Instagram" : platformName} account${channelDisplay}!`,
       };
-    } else if (status === "error") {
-      const errorMsg = OAUTH_ERROR_MESSAGES[errorCode] || "Failed to complete YouTube OAuth connection.";
+    } else if (status === "error" || igParam === "error") {
+      const errorMsg = OAUTH_ERROR_MESSAGES[errorCode] || `Failed to complete ${platform ? platform.toUpperCase() : "social"} OAuth connection.`;
       return {
         type: "error",
         message: errorMsg,
@@ -78,7 +81,7 @@ export function ConnectedAccounts() {
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
-    if (params.get("status")) {
+    if (params.get("status") || params.get("instagram")) {
       window.history.replaceState({}, document.title, window.location.pathname);
     }
 
@@ -116,6 +119,14 @@ export function ConnectedAccounts() {
   const ytAccount = accounts.find(
     (a) => a.platform?.toUpperCase() === "YOUTUBE"
   );
+  const isYtActive = ytAccount?.connection_status === "ACTIVE";
+  const isYtExpired = ytAccount?.connection_status === "EXPIRED" || ytAccount?.connection_status === "ERROR";
+
+  const igAccount = accounts.find(
+    (a) => a.platform?.toUpperCase() === "INSTAGRAM"
+  );
+  const isIgActive = igAccount?.connection_status === "ACTIVE";
+  const isIgExpired = igAccount?.connection_status === "EXPIRED" || igAccount?.connection_status === "ERROR";
 
   const handleConnectYouTube = async () => {
     try {
@@ -132,6 +143,27 @@ export function ConnectedAccounts() {
       }
     } catch (err) {
       const errMsg = err.response?.data?.error || "Failed to initialize Google OAuth connection.";
+      setBanner({ type: "error", message: errMsg });
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleConnectInstagram = async () => {
+    try {
+      setActionLoading(true);
+      setBanner(null);
+      const res = await socialMediaService.getInstagramConnectUrl();
+      if (res.success && res.authorization_url) {
+        window.location.href = res.authorization_url;
+      } else {
+        setBanner({
+          type: "error",
+          message: res.error || "Failed to generate Meta OAuth authorization URL.",
+        });
+      }
+    } catch (err) {
+      const errMsg = err.response?.data?.error || "Failed to initialize Instagram OAuth connection.";
       setBanner({ type: "error", message: errMsg });
     } finally {
       setActionLoading(false);
@@ -159,9 +191,6 @@ export function ConnectedAccounts() {
       setActionLoading(false);
     }
   };
-
-  const isYtActive = ytAccount?.connection_status === "ACTIVE";
-  const isYtExpired = ytAccount?.connection_status === "EXPIRED" || ytAccount?.connection_status === "ERROR";
 
   return (
     <div className="sm-module-container">
@@ -345,30 +374,105 @@ export function ConnectedAccounts() {
                 <Instagram size={22} />
               </div>
               <div>
-                <div className="sm-platform-name">Instagram Creator / Pro</div>
+                <div className="sm-platform-name">Instagram Professional</div>
                 <div className="sm-platform-type">Meta Graph API</div>
               </div>
             </div>
-            <span className="sm-status-pill not-connected">Not Configured</span>
+            <span
+              className={`sm-status-pill ${
+                isIgActive
+                  ? "connected"
+                  : isIgExpired
+                  ? "expired"
+                  : "not-connected"
+              }`}
+            >
+              {isIgActive
+                ? "Connected"
+                : isIgExpired
+                ? "Token Expired"
+                : "Not Connected"}
+            </span>
           </div>
 
           <div className="sm-platform-card-body">
-            <div style={{ fontSize: "12px", color: "var(--text-muted, #64748b)", marginBottom: "6px" }}>
-              <strong>Scope:</strong> instagram_basic, instagram_content_publish
-            </div>
-            <div style={{ fontSize: "12px", color: "var(--text-secondary, #334155)" }}>
-              Requires an Instagram Business or Creator account connected to a Facebook Page (Stage 7).
-            </div>
+            {igAccount && (isIgActive || isIgExpired) ? (
+              <div style={{ display: "flex", flexDirection: "column", gap: "8px", padding: "10px 0" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+                  {igAccount.profile_image_url ? (
+                    <img
+                      src={igAccount.profile_image_url}
+                      alt={igAccount.account_name}
+                      style={{ width: "42px", height: "42px", borderRadius: "50%", objectFit: "cover" }}
+                    />
+                  ) : (
+                    <div
+                      style={{
+                        width: "42px",
+                        height: "42px",
+                        borderRadius: "50%",
+                        background: "linear-gradient(45deg, #f09433, #e6683c, #dc2743, #cc2366, #bc1888)",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        color: "#ffffff"
+                      }}
+                    >
+                      <Instagram size={22} />
+                    </div>
+                  )}
+                  <div>
+                    <div style={{ fontSize: "14px", fontWeight: "700", color: "var(--text-primary, #0f172a)" }}>
+                      {igAccount.account_name || igAccount.account_username || "Instagram Account"}
+                    </div>
+                    <div style={{ fontSize: "12px", color: "var(--text-muted, #64748b)" }}>
+                      {igAccount.account_username ? `@${igAccount.account_username}` : `ID: ${igAccount.platform_account_id}`}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <>
+                <div style={{ fontSize: "12px", color: "var(--text-muted, #64748b)", marginBottom: "6px" }}>
+                  <strong>Scopes:</strong> Meta Graph API (<code style={{ fontSize: "11px" }}>instagram_basic</code>, <code style={{ fontSize: "11px" }}>instagram_content_publish</code>)
+                </div>
+                <div style={{ fontSize: "12px", color: "var(--text-secondary, #334155)" }}>
+                  Connect your official Instagram Creator or Business account linked to a Facebook Page to enable automated publishing.
+                </div>
+              </>
+            )}
           </div>
 
-          <div className="sm-platform-card-footer">
-            <button
-              className="sm-btn-primary"
-              style={{ fontSize: "12px", padding: "8px 16px", opacity: 0.5, cursor: "not-allowed" }}
-              disabled={true}
-            >
-              + Connect Instagram (Phase 7)
-            </button>
+          <div className="sm-platform-card-footer" style={{ display: "flex", gap: "10px", justifyContent: "flex-end" }}>
+            {igAccount && (isIgActive || isIgExpired) ? (
+              <>
+                <button
+                  className="sm-btn-secondary"
+                  style={{ fontSize: "12px", padding: "8px 14px" }}
+                  onClick={handleConnectInstagram}
+                  disabled={actionLoading}
+                >
+                  <RefreshCw size={13} style={{ marginRight: "6px" }} /> Reconnect
+                </button>
+                <button
+                  className="sm-btn-secondary"
+                  style={{ fontSize: "12px", padding: "8px 14px", color: "#dc2626", borderColor: "rgba(220, 38, 38, 0.3)" }}
+                  onClick={() => handleDisconnect(igAccount.id, "Instagram Account")}
+                  disabled={actionLoading}
+                >
+                  <Trash2 size={13} style={{ marginRight: "6px" }} /> Disconnect
+                </button>
+              </>
+            ) : (
+              <button
+                className="sm-btn-primary"
+                style={{ fontSize: "12px", padding: "8px 16px" }}
+                onClick={handleConnectInstagram}
+                disabled={actionLoading}
+              >
+                + Connect Instagram
+              </button>
+            )}
           </div>
         </div>
 

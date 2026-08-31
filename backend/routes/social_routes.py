@@ -27,6 +27,10 @@ from services.youtube_oauth_service import (
     get_user_social_accounts,
     disconnect_social_account
 )
+from services.instagram_oauth_service import (
+    get_instagram_authorization_url,
+    handle_instagram_oauth_callback
+)
 from services.youtube_publish_service import (
     start_youtube_publish_task
 )
@@ -87,6 +91,55 @@ def youtube_oauth_callback_endpoint():
             return redirect(f"{frontend_accounts_url}?status=error&code={status_code}")
     except Exception:
         return redirect(f"{frontend_accounts_url}?status=error&code=oauth_failed")
+
+
+# =============================================================================
+# 1B. Instagram & Meta OAuth 2.0 Connection Routes (Stage 6B)
+# =============================================================================
+
+@social_blueprint.route("/connect/instagram", methods=["GET"])
+@token_required
+def connect_instagram_endpoint(current_user):
+    """
+    Generate Meta OAuth 2.0 authorization URL for Instagram connection.
+    - Generates and stores single-use state tied to current_user.
+    """
+    user_id = current_user.get("user_id")
+    try:
+        res = get_instagram_authorization_url(user_id=user_id)
+        return jsonify({
+            "success": True,
+            "authorization_url": res["authorization_url"]
+        }), 200
+    except ValueError as e:
+        return jsonify({"success": False, "error": str(e)}), 400
+    except Exception:
+        return jsonify({"success": False, "error": "Failed to initialize Instagram OAuth connection."}), 500
+
+
+@social_blueprint.route("/oauth/instagram/callback", methods=["GET"])
+def instagram_oauth_callback_endpoint():
+    """
+    Meta OAuth 2.0 callback endpoint for Instagram.
+    - Verifies user identity exclusively from validated single-use state.
+    - Redirects browser to Config.FRONTEND_URL with sanitized status parameters.
+    """
+    state = request.args.get("state")
+    code = request.args.get("code")
+    error = request.args.get("error") or request.args.get("error_reason")
+
+    frontend_accounts_url = f"{Config.FRONTEND_URL}/social-media/accounts"
+
+    try:
+        status_code, data = handle_instagram_oauth_callback(raw_state=state, code=code, error=error)
+        if status_code == "success" and data:
+            username = urllib.parse.quote(data.get("username", data.get("name", "Instagram Account")))
+            return redirect(f"{frontend_accounts_url}?status=success&platform=instagram&channel={username}&instagram=connected")
+        else:
+            return redirect(f"{frontend_accounts_url}?status=error&code={status_code}&platform=instagram&instagram=error")
+    except Exception:
+        return redirect(f"{frontend_accounts_url}?status=error&code=oauth_failed&platform=instagram&instagram=error")
+
 
 
 # =============================================================================
