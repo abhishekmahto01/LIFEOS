@@ -290,7 +290,10 @@ def get_user_social_accounts(user_id: int) -> list:
                 computed_status = "EXPIRED"
 
             can_upload = bool(raw_scopes and YOUTUBE_UPLOAD_SCOPE in raw_scopes) if plat == "YOUTUBE" else False
-            reconnect_required = bool(plat == "YOUTUBE" and not can_upload)
+            if plat == "YOUTUBE":
+                reconnect_required = (not can_upload) or (computed_status in ("EXPIRED", "ERROR", "REVOKED"))
+            else:
+                reconnect_required = computed_status in ("EXPIRED", "ERROR", "REVOKED")
 
             accounts.append({
                 "id": aid,

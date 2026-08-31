@@ -297,11 +297,92 @@ def handle_instagram_oauth_callback(raw_state: str, code: str = None, error: str
             conn.close()
 
 
-def get_valid_instagram_access_token(account_id: int, user_id: int) -> tuple[bool, str | None, str | None]:
+def is_instagram_token_expired(expires_at: datetime.datetime | None, threshold_minutes: int = 5) -> bool:
     """
-    Retrieve and decrypt active Instagram access token for the given account.
-    Returns (success, decrypted_access_token_or_none, error_or_none).
+    Check if a token expiry timestamp is expired or within the given threshold buffer.
+    If expires_at is None, returns True (missing expiry requires validation/renewal).
     """
+    if expires_at is None:
+        return True
+    now_utc = datetime.datetime.now(datetime.timezone.utc)
+    if expires_at.tzinfo is None:
+        expires_at = expires_at.replace(tzinfo=datetime.timezone.utc)
+    return expires_at <= (now_utc + datetime.timedelta(minutes=threshold_minutes))
+
+
+def mark_instagram_account_status(account_id: int, user_id: int, status: str, error_msg: str | None = None) -> bool:
+    """
+    Safely update connection_status for a user's Instagram account.
+    Allowed statuses: 'ACTIVE', 'EXPIRED', 'REVOKED', 'DISCONNECTED', 'ERROR'.
+    """
+    valid_statuses = {"ACTIVE", "EXPIRED", "REVOKED", "DISCONNECTED", "ERROR"}
+    if status not in valid_statuses:
+        raise ValueError(f"Invalid connection_status '{status}'. Allowed: {valid_statuses}")
+
+    conn = None
+    cur = None
+    try:
+        conn = get_connection()
+        cur = conn.cursor()
+        if error_msg:
+            cur.execute("""
+                UPDATE social_accounts
+                SET connection_status = %s,
+                    metadata = jsonb_set(
+                        COALESCE(metadata, '{}'::jsonb),
+                        '{last_error}',
+                        %s::jsonb
+                    ),
+                    updated_at = CURRENT_TIMESTAMP
+                WHERE id = %s AND user_id = %s AND platform = 'INSTAGRAM';
+            """, (status, json.dumps(error_msg), account_id, user_id))
+        else:
+            cur.execute("""
+                UPDATE social_accounts
+                SET connection_status = %s,
+                    updated_at = CURRENT_TIMESTAMP
+                WHERE id = %s AND user_id = %s AND platform = 'INSTAGRAM';
+            """, (status, account_id, user_id))
+        updated = cur.rowcount > 0
+        conn.commit()
+        return updated
+    finally:
+        if cur:
+            cur.close()
+        if conn:
+            conn.close()
+
+
+def mark_instagram_account_expired(account_id: int, user_id: int) -> bool:
+    """Mark an Instagram account as EXPIRED requiring reconnect."""
+    return mark_instagram_account_status(account_id=account_id, user_id=user_id, status="EXPIRED")
+
+
+def mark_instagram_account_error(account_id: int, user_id: int, error_message: str | None = None) -> bool:
+    """Mark an Instagram account as ERROR requiring attention or reconnect."""
+    return mark_instagram_account_status(account_id=account_id, user_id=user_id, status="ERROR", error_msg=error_message)
+
+
+def mark_instagram_account_revoked(account_id: int, user_id: int, error_message: str | None = None) -> bool:
+    """Mark an Instagram account as REVOKED requiring reconnect."""
+    return mark_instagram_account_status(account_id=account_id, user_id=user_id, status="REVOKED", error_msg=error_message)
+
+
+def refresh_instagram_access_token(account_id: int, user_id: int) -> tuple[bool, str | None, str | None]:
+    """
+    Renew a Meta/Instagram Long-Lived User Access Token using Meta Graph API (grant_type=fb_exchange_token).
+    - Enforces strict user ownership.
+    - Decrypts current token internally.
+    - Encrypts newly renewed token with Fernet before database storage.
+    - Updates token_expires_at (60 days default) and sets connection_status = 'ACTIVE'.
+    - Marks EXPIRED or ERROR only on permanent OAuth rejection (code 190 / invalid grant).
+    - Preserves existing database state on transient network / 5xx server failures.
+    - Never logs or exposes raw tokens.
+    Returns (success, decrypted_new_token_or_none, error_or_none).
+    """
+    if not user_id or not account_id:
+        return False, None, "User ID and Account ID are required for token renewal."
+
     conn = None
     cur = None
     try:
@@ -319,21 +400,168 @@ def get_valid_instagram_access_token(account_id: int, user_id: int) -> tuple[boo
 
         aid, enc_access, expires_at, status = row
 
-        if status != "ACTIVE":
-            return False, None, f"Instagram account is in {status} state. Please reconnect."
-
-        now_utc = datetime.datetime.now(datetime.timezone.utc)
-        if expires_at and expires_at < now_utc:
-            # Mark account as expired in database
-            cur.execute("UPDATE social_accounts SET connection_status = 'EXPIRED' WHERE id = %s;", (aid,))
-            conn.commit()
-            return False, None, "Instagram access token has expired. Please reconnect."
+        if status == "DISCONNECTED":
+            return False, None, "Instagram account is disconnected. Please reconnect."
 
         if not enc_access:
-            return False, None, "No access token found for this account."
+            mark_instagram_account_error(account_id, user_id, "No access token found for account")
+            return False, None, "No access token stored for this account. Please reconnect."
 
-        raw_token = decrypt_token(enc_access)
-        return True, raw_token, None
+        try:
+            current_access_token = decrypt_token(enc_access)
+        except Exception:
+            mark_instagram_account_error(account_id, user_id, "Corrupt encrypted access token")
+            return False, None, "Corrupt or malformed access token. Please reconnect your Instagram account."
+
+        # Exchange current long-lived token for a refreshed long-lived token
+        token_endpoint = f"{Config.META_GRAPH_API_BASE_URL}/{Config.META_GRAPH_API_VERSION}/oauth/access_token"
+        refresh_params = {
+            "grant_type": "fb_exchange_token",
+            "client_id": Config.INSTAGRAM_CLIENT_ID,
+            "client_secret": Config.INSTAGRAM_CLIENT_SECRET,
+            "fb_exchange_token": current_access_token
+        }
+
+        try:
+            resp = requests.get(token_endpoint, params=refresh_params, timeout=15)
+        except Exception:
+            # Transient network/connection error — do NOT corrupt or expire database status
+            return False, None, "Temporary failure connecting to Meta Graph API. Please try again."
+
+        if resp.status_code == 200:
+            try:
+                data = resp.json()
+            except Exception:
+                return False, None, "Invalid JSON response received from Meta Graph API."
+
+            new_access_token = data.get("access_token")
+            if not new_access_token or not new_access_token.strip():
+                mark_instagram_account_error(account_id, user_id, "Meta response missing access token")
+                return False, None, "Meta token renewal response missing access token."
+
+            expires_in = int(data.get("expires_in", 5184000))  # Default 60 days
+            new_expires_at = datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(seconds=expires_in)
+            new_enc_access = encrypt_token(new_access_token)
+
+            cur.execute("""
+                UPDATE social_accounts
+                SET encrypted_access_token = %s,
+                    token_expires_at = %s,
+                    connection_status = 'ACTIVE',
+                    updated_at = CURRENT_TIMESTAMP
+                WHERE id = %s AND user_id = %s;
+            """, (new_enc_access, new_expires_at, account_id, user_id))
+            conn.commit()
+
+            return True, new_access_token, None
+
+        # Handle non-200 responses
+        if resp.status_code >= 500:
+            # Transient 5xx server error on Meta's side — preserve active connection
+            return False, None, f"Temporary Meta server error (HTTP {resp.status_code}). Please try again."
+
+        # Parse client/OAuth error (HTTP 400/401)
+        err_data = {}
+        try:
+            err_data = resp.json().get("error", {})
+        except Exception:
+            pass
+
+        err_code = err_data.get("code")
+        err_type = err_data.get("type", "")
+        err_msg = err_data.get("message", "OAuth error")
+
+        # Code 190 is Meta's canonical Invalid OAuth Access Token (expired, revoked, password changed)
+        if err_code == 190 or "OAuthException" in err_type or "expired" in err_msg.lower() or "revoked" in err_msg.lower() or resp.status_code in (400, 401):
+            mark_instagram_account_expired(account_id, user_id)
+            return False, None, "Instagram authorization has expired or been revoked. Please reconnect."
+
+        mark_instagram_account_error(account_id, user_id, f"Meta token renewal failed (HTTP {resp.status_code})")
+        return False, None, "Failed to renew Instagram authorization. Please reconnect."
+
+    except Exception as e:
+        if conn:
+            conn.rollback()
+        return False, None, f"Unexpected error renewing Instagram token: {str(e)}"
+    finally:
+        if cur:
+            cur.close()
+        if conn:
+            conn.close()
+
+
+def get_valid_instagram_access_token(account_id: int, user_id: int, auto_refresh: bool = True) -> tuple[bool, str | None, str | None]:
+    """
+    Retrieve and decrypt active Instagram access token for the given account.
+    - Enforces strict user ownership check.
+    - Inspects token_expires_at and automatically renews long-lived token when expired or near expiry.
+    - Handles malformed/corrupted encrypted tokens safely by setting ERROR state.
+    - Returns (success, decrypted_access_token_or_none, error_or_none).
+    """
+    if not user_id or not account_id:
+        return False, None, "User ID and Account ID are required."
+
+    conn = None
+    cur = None
+    try:
+        conn = get_connection()
+        cur = conn.cursor()
+        cur.execute("""
+            SELECT id, encrypted_access_token, token_expires_at, connection_status
+            FROM social_accounts
+            WHERE id = %s AND user_id = %s AND platform = 'INSTAGRAM';
+        """, (account_id, user_id))
+        row = cur.fetchone()
+
+        if not row:
+            return False, None, "Instagram account not found or access denied."
+
+        aid, enc_access, expires_at, status = row
+
+        if status == "DISCONNECTED":
+            return False, None, "Instagram account is disconnected. Please reconnect."
+
+        if not enc_access:
+            mark_instagram_account_error(account_id, user_id, "Missing encrypted token")
+            return False, None, "No access token found for this account. Please reconnect."
+
+        try:
+            raw_token = decrypt_token(enc_access)
+        except Exception:
+            mark_instagram_account_error(account_id, user_id, "Corrupt encrypted token")
+            return False, None, "Corrupt or malformed token. Please reconnect your Instagram account."
+
+        now_utc = datetime.datetime.now(datetime.timezone.utc)
+        if expires_at and expires_at.tzinfo is None:
+            expires_at = expires_at.replace(tzinfo=datetime.timezone.utc)
+
+        is_expired = (expires_at is not None) and (expires_at < now_utc)
+        # Check if nearing expiration (within 2 days)
+        is_near_expiry = (expires_at is not None) and (expires_at - now_utc < datetime.timedelta(days=2))
+
+        if not is_expired and not is_near_expiry:
+            if status != "ACTIVE":
+                mark_instagram_account_status(account_id, user_id, "ACTIVE")
+            return True, raw_token, None
+
+        # Token is expired or nearing expiry
+        if auto_refresh:
+            success, refreshed_token, err = refresh_instagram_access_token(account_id=aid, user_id=user_id)
+            if success and refreshed_token:
+                return True, refreshed_token, None
+
+            # If renewal failed, check if token is still strictly in its valid window
+            if not is_expired and raw_token:
+                return True, raw_token, None
+
+            # Token has expired and could not be renewed
+            return False, None, err or "Instagram access token has expired. Please reconnect."
+        else:
+            if is_expired:
+                mark_instagram_account_expired(account_id, user_id)
+                return False, None, "Instagram access token has expired. Please reconnect."
+            return True, raw_token, None
+
     except Exception as e:
         return False, None, f"Failed to retrieve Instagram access token: {str(e)}"
     finally:

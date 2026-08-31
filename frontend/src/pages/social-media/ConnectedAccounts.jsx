@@ -126,7 +126,10 @@ export function ConnectedAccounts() {
     (a) => a.platform?.toUpperCase() === "INSTAGRAM"
   );
   const isIgActive = igAccount?.connection_status === "ACTIVE";
-  const isIgExpired = igAccount?.connection_status === "EXPIRED" || igAccount?.connection_status === "ERROR";
+  const isIgExpired = igAccount?.connection_status === "EXPIRED";
+  const isIgError = igAccount?.connection_status === "ERROR";
+  const isIgRevoked = igAccount?.connection_status === "REVOKED";
+  const hasIgAccount = igAccount && igAccount.connection_status !== "DISCONNECTED";
 
   const handleConnectYouTube = async () => {
     try {
@@ -384,19 +387,25 @@ export function ConnectedAccounts() {
                   ? "connected"
                   : isIgExpired
                   ? "expired"
+                  : isIgError || isIgRevoked
+                  ? "error"
                   : "not-connected"
               }`}
             >
               {isIgActive
                 ? "Connected"
                 : isIgExpired
-                ? "Token Expired"
+                ? "Session Expired"
+                : isIgError
+                ? "Connection Error"
+                : isIgRevoked
+                ? "Access Revoked"
                 : "Not Connected"}
             </span>
           </div>
 
           <div className="sm-platform-card-body">
-            {igAccount && (isIgActive || isIgExpired) ? (
+            {hasIgAccount ? (
               <div style={{ display: "flex", flexDirection: "column", gap: "8px", padding: "10px 0" }}>
                 <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
                   {igAccount.profile_image_url ? (
@@ -430,6 +439,21 @@ export function ConnectedAccounts() {
                     </div>
                   </div>
                 </div>
+                {isIgExpired && (
+                  <div style={{ fontSize: "11.5px", color: "#d97706", background: "rgba(245, 158, 11, 0.1)", padding: "6px 10px", borderRadius: "8px", border: "1px solid rgba(245, 158, 11, 0.25)" }}>
+                    ⚠️ <strong>Session Expired:</strong> Your Meta authorization token has expired. Click <strong>Reconnect</strong> to restore API access.
+                  </div>
+                )}
+                {isIgError && (
+                  <div style={{ fontSize: "11.5px", color: "#dc2626", background: "rgba(220, 38, 38, 0.1)", padding: "6px 10px", borderRadius: "8px", border: "1px solid rgba(220, 38, 38, 0.25)" }}>
+                    ⚠️ <strong>Connection Error:</strong> Meta Graph API reported an authentication error. Click <strong>Reconnect</strong> to restore access.
+                  </div>
+                )}
+                {isIgRevoked && (
+                  <div style={{ fontSize: "11.5px", color: "#dc2626", background: "rgba(220, 38, 38, 0.1)", padding: "6px 10px", borderRadius: "8px", border: "1px solid rgba(220, 38, 38, 0.25)" }}>
+                    ⚠️ <strong>Access Revoked:</strong> Permissions were revoked on Meta/Instagram. Click <strong>Reconnect</strong> to restore access.
+                  </div>
+                )}
               </div>
             ) : (
               <>
@@ -444,7 +468,7 @@ export function ConnectedAccounts() {
           </div>
 
           <div className="sm-platform-card-footer" style={{ display: "flex", gap: "10px", justifyContent: "flex-end" }}>
-            {igAccount && (isIgActive || isIgExpired) ? (
+            {hasIgAccount ? (
               <>
                 <button
                   className="sm-btn-secondary"
