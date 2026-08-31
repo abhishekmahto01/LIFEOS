@@ -7,11 +7,14 @@ Responsible only for:
 - Returning sanitized JSON responses with HTTP status codes
 """
 
+import os
 import json
+import datetime
 import urllib.parse
-from flask import Blueprint, request, jsonify, redirect
+from flask import Blueprint, request, jsonify, redirect, send_file
 
 from config import Config
+from database.db import get_connection
 from utils.helpers import token_required
 from services.upload_service import (
     validate_and_save_upload,
@@ -19,6 +22,7 @@ from services.upload_service import (
     cleanup_content_media,
     cleanup_expired_and_orphan_files,
     safe_delete_temp_file,
+    get_safe_temp_path,
     parse_strict_bool
 )
 from services.youtube_oauth_service import (
@@ -33,6 +37,9 @@ from services.instagram_oauth_service import (
 )
 from services.youtube_publish_service import (
     start_youtube_publish_task
+)
+from services.instagram_publish_service import (
+    publish_instagram_reel
 )
 from services.social_post_service import (
     get_user_post_history,
@@ -346,6 +353,120 @@ def retry_youtube_publish_endpoint(current_user, content_id):
         "content_id": content_id,
         "retry_type": status_detail.get("retry_type", "FULL_VIDEO")
     }), 200
+
+
+# =============================================================================
+# 3B. Instagram Reel Publishing Routes (Stage 7A)
+# =============================================================================
+
+@social_blueprint.route("/publish/instagram", methods=["POST"])
+@token_required
+def publish_instagram_endpoint(current_user):
+    """
+    Publish an uploaded video to Instagram as a Reel.
+    Requires JSON body: {"content_id": 123, "account_id": 45}
+    """
+    user_id = current_user.get("user_id")
+    data = request.get_json(silent=True) or {}
+    content_id = data.get("content_id")
+    account_id = data.get("account_id")
+    custom_video_url = data.get("video_url") or data.get("custom_video_url")
+
+    if content_id is None:
+        return jsonify({"success": False, "error": "content_id is required."}), 400
+    if not isinstance(content_id, int) or content_id <= 0:
+        return jsonify({"success": False, "error": "content_id must be a positive integer."}), 400
+
+    if account_id is None:
+        return jsonify({"success": False, "error": "account_id is required."}), 400
+    if not isinstance(account_id, int) or account_id <= 0:
+        return jsonify({"success": False, "error": "account_id must be a positive integer."}), 400
+
+    res = publish_instagram_reel(
+        user_id=user_id,
+        content_id=content_id,
+        account_id=account_id,
+        custom_video_url=custom_video_url
+    )
+    status_code = res.pop("status_code", 200 if res.get("success") else 400)
+    return jsonify(res), status_code
+
+
+@social_blueprint.route("/content/<int:content_id>/publish/instagram", methods=["POST"])
+@token_required
+def publish_instagram_content_endpoint(current_user, content_id):
+    """
+    Publish a specific content record to Instagram.
+    Requires JSON body: {"account_id": 45}
+    """
+    user_id = current_user.get("user_id")
+    data = request.get_json(silent=True) or {}
+    account_id = data.get("account_id")
+    custom_video_url = data.get("video_url") or data.get("custom_video_url")
+
+    if account_id is None:
+        return jsonify({"success": False, "error": "account_id is required."}), 400
+    if not isinstance(account_id, int) or account_id <= 0:
+        return jsonify({"success": False, "error": "account_id must be a positive integer."}), 400
+
+    res = publish_instagram_reel(
+        user_id=user_id,
+        content_id=content_id,
+        account_id=account_id,
+        custom_video_url=custom_video_url
+    )
+    status_code = res.pop("status_code", 200 if res.get("success") else 400)
+    return jsonify(res), status_code
+
+
+@social_blueprint.route("/public-media/<int:content_id>/<filename>", methods=["GET"])
+def stream_public_media_endpoint(content_id, filename):
+    """
+    Public media streaming endpoint for Meta Instagram Reel ingestion.
+    Validates content_id, filename, unexpired TTL, and streams file with range headers.
+    """
+    conn = None
+    cur = None
+    try:
+        conn = get_connection()
+        cur = conn.cursor()
+        cur.execute("""
+            SELECT temp_media_path, temp_file_deleted, temp_file_expires_at
+            FROM social_content
+            WHERE id = %s;
+        """, (content_id,))
+        row = cur.fetchone()
+
+        if not row:
+            return jsonify({"error": "Media not found."}), 404
+
+        temp_media_path, temp_deleted, expires_at = row
+
+        if temp_deleted or not temp_media_path:
+            return jsonify({"error": "Media file has been deleted or purged."}), 410
+
+        now_utc = datetime.datetime.now(datetime.timezone.utc)
+        if expires_at:
+            if expires_at.tzinfo is None:
+                expires_at = expires_at.replace(tzinfo=datetime.timezone.utc)
+            if expires_at <= now_utc:
+                return jsonify({"error": "Media file has expired."}), 410
+
+        expected_filename = os.path.basename(temp_media_path)
+        if filename != expected_filename:
+            return jsonify({"error": "Invalid media filename."}), 404
+
+        safe_path = get_safe_temp_path(temp_media_path)
+        if not safe_path or not os.path.exists(safe_path):
+            return jsonify({"error": "Media file not found on disk."}), 404
+
+        return send_file(safe_path, mimetype="video/mp4", conditional=True)
+    finally:
+        if cur:
+            cur.close()
+        if conn:
+            conn.close()
+
 
 
 # =============================================================================
