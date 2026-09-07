@@ -42,5 +42,4 @@ tempCodeRunnerFile.*
 *.sln
 
 # Heavy Frame Assets & Sequences
-frontend/public/portfolio/frames/
 frontend/public/portfolio/angles/

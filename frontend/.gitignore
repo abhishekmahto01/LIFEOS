@@ -24,5 +24,6 @@ dist-ssr
 *.sw?
 
 # Frame Sequences
-public/portfolio/frames/
+
+
 public/portfolio/angles/
