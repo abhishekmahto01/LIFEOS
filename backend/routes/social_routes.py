@@ -15,7 +15,8 @@ from flask import Blueprint, request, jsonify, redirect, send_file
 
 from config import Config
 from database.db import get_connection
-from utils.helpers import token_required
+from utils.helpers import token_required, module_required
+
 from services.upload_service import (
     validate_and_save_upload,
     create_social_content_record,
@@ -60,7 +61,7 @@ VALID_PRIVACIES = {"PRIVATE", "UNLISTED", "PUBLIC"}
 # =============================================================================
 
 @social_blueprint.route("/connect/youtube", methods=["GET"])
-@token_required
+@module_required("social_media")
 def connect_youtube_endpoint(current_user):
     """
     Generate Google OAuth 2.0 authorization URL for YouTube connection.
@@ -108,7 +109,7 @@ def youtube_oauth_callback_endpoint():
 # =============================================================================
 
 @social_blueprint.route("/connect/instagram", methods=["GET"])
-@token_required
+@module_required("social_media")
 def connect_instagram_endpoint(current_user):
     """
     Generate Meta OAuth 2.0 authorization URL for Instagram connection.
@@ -157,7 +158,7 @@ def instagram_oauth_callback_endpoint():
 # =============================================================================
 
 @social_blueprint.route("/accounts", methods=["GET"])
-@token_required
+@module_required("social_media")
 def list_accounts_endpoint(current_user):
     """
     List connected social media accounts for the authenticated user.
@@ -174,7 +175,7 @@ def list_accounts_endpoint(current_user):
 
 
 @social_blueprint.route("/accounts/<int:account_id>", methods=["DELETE"])
-@token_required
+@module_required("social_media")
 def disconnect_account_endpoint(current_user, account_id):
     """
     Disconnect a connected social media account.
@@ -196,7 +197,7 @@ def disconnect_account_endpoint(current_user, account_id):
 # =============================================================================
 
 @social_blueprint.route("/upload", methods=["POST"])
-@token_required
+@module_required("social_media")
 def upload_video_endpoint(current_user):
     """
     Secure temporary upload and post creation endpoint.
@@ -300,7 +301,7 @@ def upload_video_endpoint(current_user):
 
 
 @social_blueprint.route("/content/<int:content_id>/publish/youtube", methods=["POST"])
-@token_required
+@module_required("social_media")
 def trigger_youtube_publish_endpoint(current_user, content_id):
     """
     Explicitly trigger or restart YouTube resumable publication for a content record.
@@ -319,7 +320,7 @@ def trigger_youtube_publish_endpoint(current_user, content_id):
 
 
 @social_blueprint.route("/content/<int:content_id>/status", methods=["GET"])
-@token_required
+@module_required("social_media")
 def get_content_status_endpoint(current_user, content_id):
     """
     Retrieve real-time publication progress and processing state for a post.
@@ -331,7 +332,7 @@ def get_content_status_endpoint(current_user, content_id):
 
 
 @social_blueprint.route("/content/<int:content_id>/retry/youtube", methods=["POST"])
-@token_required
+@module_required("social_media")
 def retry_youtube_publish_endpoint(current_user, content_id):
     """
     Retry a failed YouTube publication. Resumes from offset or restarts session safely.
@@ -363,7 +364,7 @@ def retry_youtube_publish_endpoint(current_user, content_id):
 # =============================================================================
 
 @social_blueprint.route("/publish", methods=["POST"])
-@token_required
+@module_required("social_media")
 def unified_publish_endpoint(current_user):
     """
     Unified multi-platform publishing endpoint (Stage 8).
@@ -407,7 +408,7 @@ def unified_publish_endpoint(current_user):
 # =============================================================================
 
 @social_blueprint.route("/publish/instagram", methods=["POST"])
-@token_required
+@module_required("social_media")
 def publish_instagram_endpoint(current_user):
     """
     Publish an uploaded video to Instagram as a Reel.
@@ -440,7 +441,7 @@ def publish_instagram_endpoint(current_user):
 
 
 @social_blueprint.route("/content/<int:content_id>/publish/instagram", methods=["POST"])
-@token_required
+@module_required("social_media")
 def publish_instagram_content_endpoint(current_user, content_id):
     """
     Publish a specific content record to Instagram.
@@ -467,7 +468,7 @@ def publish_instagram_content_endpoint(current_user, content_id):
 
 
 @social_blueprint.route("/content/<int:content_id>/retry/instagram", methods=["POST"])
-@token_required
+@module_required("social_media")
 def retry_instagram_publish_endpoint(current_user, content_id):
     """
     Retry a failed Instagram publication.
@@ -581,7 +582,7 @@ def stream_public_media_endpoint(content_id, filename):
 # =============================================================================
 
 @social_blueprint.route("/history", methods=["GET"])
-@token_required
+@module_required("social_media")
 def get_post_history_endpoint(current_user):
     """
     Retrieve user post history with platform details, video IDs, statuses, and watch URLs.
@@ -596,7 +597,7 @@ def get_post_history_endpoint(current_user):
 
 
 @social_blueprint.route("/dashboard", methods=["GET"])
-@token_required
+@module_required("social_media")
 def get_dashboard_summary_endpoint(current_user):
     """
     Retrieve real KPI metrics and recent post summaries for the authenticated user.
@@ -611,7 +612,7 @@ def get_dashboard_summary_endpoint(current_user):
 # =============================================================================
 
 @social_blueprint.route("/cleanup/<int:content_id>", methods=["POST"])
-@token_required
+@module_required("social_media")
 def cleanup_media_endpoint(current_user, content_id):
     """
     Secure manual/platform cleanup endpoint.
@@ -629,7 +630,7 @@ def cleanup_media_endpoint(current_user, content_id):
 
 
 @social_blueprint.route("/cleanup-expired", methods=["POST"])
-@token_required
+@module_required("social_media")
 def cleanup_expired_endpoint(current_user):
     """
     Admin-only sweeper endpoint to trigger expired & orphan temporary file purging.

@@ -2,6 +2,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-d
 
 import MainLayout from "./components/MainLayout";
 import ProtectedRoute from "./components/ProtectedRoute";
+import ModuleRoute from "./components/ModuleRoute";
 
 import PortfolioPage from "./portfolio/PortfolioPage";
 import Dashboard from "./pages/Dashboard";
@@ -39,20 +40,104 @@ function App() {
             </ProtectedRoute>
           }
         >
+          {/* Main Dashboard - Available to all authenticated users */}
           <Route path="/dashboard" element={<Dashboard />} />
-          <Route path="/discipline" element={<DisciplineDashboard />} />
-          <Route path="/career" element={<CareerModule />} />
-          <Route path="/career/job-entry" element={<JobEntryForm />} />
-          <Route path="/career/job-history" element={<JobApplyHistory />} />
-          <Route path="/admin" element={<AdminModule />} />
+
+          {/* Discipline Module */}
+          <Route
+            path="/discipline"
+            element={
+              <ModuleRoute moduleCode="discipline">
+                <DisciplineDashboard />
+              </ModuleRoute>
+            }
+          />
+
+          {/* Career Module */}
+          <Route
+            path="/career"
+            element={
+              <ModuleRoute moduleCode="career">
+                <CareerModule />
+              </ModuleRoute>
+            }
+          />
+          <Route
+            path="/career/job-entry"
+            element={
+              <ModuleRoute moduleCode="career">
+                <JobEntryForm />
+              </ModuleRoute>
+            }
+          />
+          <Route
+            path="/career/job-history"
+            element={
+              <ModuleRoute moduleCode="career">
+                <JobApplyHistory />
+              </ModuleRoute>
+            }
+          />
+
+          {/* Admin Panel — Strictly for System Admin */}
+          <Route
+            path="/admin"
+            element={
+              <ModuleRoute moduleCode="admin">
+                <AdminModule />
+              </ModuleRoute>
+            }
+          />
 
           {/* Social Media Hub — Omnichannel Creator Engine */}
-          <Route path="/social-media" element={<SocialMediaDashboard />} />
-          <Route path="/social-media/create" element={<CreatePost />} />
-          <Route path="/social-media/calendar" element={<ContentCalendar />} />
-          <Route path="/social-media/accounts" element={<ConnectedAccounts />} />
-          <Route path="/social-media/history" element={<PostHistory />} />
-          <Route path="/social-media/analytics" element={<SocialAnalytics />} />
+          <Route
+            path="/social-media"
+            element={
+              <ModuleRoute moduleCode="social_media">
+                <SocialMediaDashboard />
+              </ModuleRoute>
+            }
+          />
+          <Route
+            path="/social-media/create"
+            element={
+              <ModuleRoute moduleCode="social_media">
+                <CreatePost />
+              </ModuleRoute>
+            }
+          />
+          <Route
+            path="/social-media/calendar"
+            element={
+              <ModuleRoute moduleCode="social_media">
+                <ContentCalendar />
+              </ModuleRoute>
+            }
+          />
+          <Route
+            path="/social-media/accounts"
+            element={
+              <ModuleRoute moduleCode="social_media">
+                <ConnectedAccounts />
+              </ModuleRoute>
+            }
+          />
+          <Route
+            path="/social-media/history"
+            element={
+              <ModuleRoute moduleCode="social_media">
+                <PostHistory />
+              </ModuleRoute>
+            }
+          />
+          <Route
+            path="/social-media/analytics"
+            element={
+              <ModuleRoute moduleCode="social_media">
+                <SocialAnalytics />
+              </ModuleRoute>
+            }
+          />
         </Route>
 
         <Route path="*" element={<Navigate to="/" replace />} />

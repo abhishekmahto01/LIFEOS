@@ -1,6 +1,7 @@
 import datetime
 from flask import Blueprint, request, jsonify
 from database.db import get_connection
+from utils.helpers import module_required, is_admin_user
 
 job_blueprint = Blueprint('jobs', __name__)
 
@@ -9,7 +10,12 @@ def parse_date(date_val):
         return None
     return date_val
 
-def get_current_job_user_id(data=None):
+def get_current_job_user_id(data=None, current_user=None):
+    if current_user and isinstance(current_user, dict) and "user_id" in current_user:
+        return int(current_user["user_id"])
+    req_user = getattr(request, "current_user", None)
+    if req_user and isinstance(req_user, dict) and "user_id" in req_user:
+        return int(req_user["user_id"])
     auth_header = request.headers.get("Authorization")
     if auth_header and auth_header.startswith("Bearer "):
         try:
@@ -20,12 +26,16 @@ def get_current_job_user_id(data=None):
                 return int(payload["user_id"])
         except Exception:
             pass
-    if data and isinstance(data, dict):
-        return data.get('user_id') or None
+    if data and isinstance(data, dict) and data.get('user_id'):
+        try:
+            return int(data.get('user_id'))
+        except (ValueError, TypeError):
+            pass
     return None
 
 @job_blueprint.route('/api/jobs', methods=['POST'])
-def add_job_entry():
+@module_required("career")
+def add_job_entry(current_user=None):
     data = request.get_json() or {}
     organization_name = data.get('organization_name', '').strip()
     post_name = data.get('post_name', '').strip()
@@ -37,6 +47,8 @@ def add_job_entry():
     if not job_no:
         timestamp_suffix = datetime.datetime.now().strftime("%y%m%d%H%M%S")
         job_no = f"JOB-{timestamp_suffix}"
+
+    user_id = get_current_job_user_id(data, current_user)
 
     try:
         conn = get_connection()
@@ -121,11 +133,13 @@ def add_job_entry():
 
 
 @job_blueprint.route('/api/jobs/history', methods=['GET'])
-def get_job_history():
+@module_required("career")
+def get_job_history(current_user=None):
     search = request.args.get('search', '').strip()
     status = request.args.get('status', '').strip()
     work_mode = request.args.get('work_mode', '').strip()
     job_portal = request.args.get('job_portal', '').strip()
+    user_id = get_current_job_user_id(None, current_user)
 
     try:
         conn = get_connection()
@@ -142,6 +156,10 @@ def get_job_history():
             WHERE 1=1
         """
         params = []
+
+        if not is_admin_user(current_user) and user_id:
+            query += " AND (user_id = %s OR user_id IS NULL)"
+            params.append(user_id)
 
         if search:
             query += """
@@ -210,93 +228,92 @@ def get_job_history():
 
 
 @job_blueprint.route('/api/jobs/stats', methods=['GET'])
-def get_job_stats():
+@module_required("career")
+def get_job_stats(current_user=None):
+    user_id = get_current_job_user_id(None, current_user)
     try:
         conn = get_connection()
         cur = conn.cursor()
 
-        # Total count
-        cur.execute("SELECT COUNT(*) FROM job_apply_mt")
+        where_clause = ""
+        params = []
+        if not is_admin_user(current_user) and user_id:
+            where_clause = " WHERE (user_id = %s OR user_id IS NULL)"
+            params = [user_id]
+
+        cur.execute(f"SELECT COUNT(*) FROM job_apply_mt{where_clause}", tuple(params))
         total = cur.fetchone()[0]
 
-        # Status counts
-        cur.execute("""
+        cur.execute(f"""
             SELECT status, COUNT(*) 
             FROM job_apply_mt 
+            {where_clause}
             GROUP BY status
-        """)
+        """, tuple(params))
         status_rows = cur.fetchall()
         status_map = {row[0] or 'Applied': row[1] for row in status_rows}
 
-        # Work Mode counts
-        cur.execute("""
-            SELECT COALESCE(work_mode, 'Remote') as mode, COUNT(*) 
+        cur.execute(f"""
+            SELECT work_mode, COUNT(*) 
             FROM job_apply_mt 
-            GROUP BY COALESCE(work_mode, 'Remote')
-        """)
-        mode_rows = cur.fetchall()
-        work_mode_map = {row[0]: row[1] for row in mode_rows}
+            {where_clause}
+            GROUP BY work_mode
+        """, tuple(params))
+        work_mode_rows = cur.fetchall()
+        work_mode_map = {row[0] or 'Remote': row[1] for row in work_mode_rows}
 
-        # Top Roles
-        cur.execute("""
+        cur.execute(f"""
             SELECT post_name, COUNT(*) as cnt 
             FROM job_apply_mt 
+            {where_clause}
             GROUP BY post_name 
             ORDER BY cnt DESC 
             LIMIT 5
-        """)
+        """, tuple(params))
         top_roles = [{"role": row[0], "count": row[1]} for row in cur.fetchall()]
 
-        # Top Portals
-        cur.execute("""
-            SELECT COALESCE(job_portal, 'LinkedIn') as portal, COUNT(*) as cnt 
+        cur.execute(f"""
+            SELECT job_portal, COUNT(*) as cnt 
             FROM job_apply_mt 
-            GROUP BY COALESCE(job_portal, 'LinkedIn') 
+            {where_clause}
+            GROUP BY job_portal 
             ORDER BY cnt DESC 
             LIMIT 5
-        """)
-        top_portals = [{"portal": row[0], "count": row[1]} for row in cur.fetchall()]
+        """, tuple(params))
+        top_portals = [{"portal": row[0] or 'Direct', "count": row[1]} for row in cur.fetchall()]
 
-        # Recent applications (last 5)
-        cur.execute("""
-            SELECT id, organization_name, post_name, status, application_start_date, job_portal, location, work_mode, created_date
-            FROM job_apply_mt
-            ORDER BY created_date DESC, id DESC
+        interview_count = status_map.get('Interview', 0)
+        interview_rate = round((interview_count / total * 100), 1) if total > 0 else 0.0
+
+        cur.execute(f"""
+            SELECT id, organization_name, post_name, status, created_date 
+            FROM job_apply_mt 
+            {where_clause}
+            ORDER BY created_date DESC, id DESC 
             LIMIT 5
-        """)
+        """, tuple(params))
         recent_rows = cur.fetchall()
-        recent_jobs = []
-        for r in recent_rows:
-            recent_jobs.append({
-                "id": r[0],
-                "organization_name": r[1],
-                "post_name": r[2],
-                "status": r[3] or "Applied",
-                "application_start_date": str(r[4]) if r[4] else None,
-                "job_portal": r[5] or "LinkedIn",
-                "location": r[6],
-                "work_mode": r[7] or "Remote",
-                "created_date": str(r[8]) if r[8] else None
-            })
-
-        # Calculate metrics
-        interviews = status_map.get('Interview', 0) + status_map.get('Technical Round', 0) + status_map.get('HR Round', 0)
-        offers = status_map.get('Offer', 0)
-        interview_rate = round(((interviews + offers) / total * 100), 1) if total > 0 else 0
+        recent_jobs = [{
+            "id": r[0],
+            "organization_name": r[1],
+            "post_name": r[2],
+            "status": r[3] or 'Applied',
+            "created_date": str(r[4]) if r[4] else None
+        } for r in recent_rows]
 
         cur.close()
         conn.close()
 
         return jsonify({
             "success": True,
-            "total": total,
-            "status_breakdown": {
-                "Applied": status_map.get('Applied', 0),
-                "Screening": status_map.get('Screening', 0),
-                "Interview": interviews,
-                "Offer": offers,
-                "Rejected": status_map.get('Rejected', 0),
-                "Ghosted": status_map.get('Ghosted', 0)
+            "metrics": {
+                "total_applied": total,
+                "applied": status_map.get('Applied', 0),
+                "shortlisted": status_map.get('Shortlisted', 0),
+                "interview": interview_count,
+                "selected": status_map.get('Selected', 0),
+                "rejected": status_map.get('Rejected', 0),
+                "active_pipeline": status_map.get('Applied', 0) + status_map.get('Shortlisted', 0) + interview_count
             },
             "raw_statuses": status_map,
             "work_mode_breakdown": work_mode_map,
@@ -311,7 +328,8 @@ def get_job_stats():
 
 
 @job_blueprint.route('/api/jobs/<int:job_id>', methods=['GET'])
-def get_single_job(job_id):
+@module_required("career")
+def get_single_job(job_id, current_user=None):
     try:
         conn = get_connection()
         cur = conn.cursor()
@@ -390,7 +408,8 @@ def get_single_job(job_id):
 
 
 @job_blueprint.route('/api/jobs/<int:job_id>', methods=['PUT'])
-def update_job_entry(job_id):
+@module_required("career")
+def update_job_entry(job_id, current_user=None):
     data = request.get_json() or {}
     try:
         conn = get_connection()
@@ -482,7 +501,8 @@ def update_job_entry(job_id):
 
 
 @job_blueprint.route('/api/jobs/<int:job_id>', methods=['DELETE'])
-def delete_job_entry(job_id):
+@module_required("career")
+def delete_job_entry(job_id, current_user=None):
     try:
         conn = get_connection()
         cur = conn.cursor()
@@ -506,7 +526,8 @@ def delete_job_entry(job_id):
 
 
 @job_blueprint.route('/api/jobs/<int:job_id>/activity', methods=['POST'])
-def add_job_activity(job_id):
+@module_required("career")
+def add_job_activity(job_id, current_user=None):
     data = request.get_json() or {}
     activity_name = data.get('activity_name', '').strip()
 

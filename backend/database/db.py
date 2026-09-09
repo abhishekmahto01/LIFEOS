@@ -141,78 +141,51 @@ def init_db():
             CREATE INDEX IF NOT EXISTS idx_discipline_user_date ON discipline_daily(user_id, date);
         """)
 
-        # 4. Ensure Discipline Module is in module_master
-        cur.execute("SELECT id FROM module_master WHERE module_name = 'Discipline' OR route = '/discipline';")
-        disc_mod = cur.fetchone()
-        if not disc_mod:
-            cur.execute("""
-                INSERT INTO module_master (module_name, route, sequence_no, is_active, created_at)
-                VALUES ('Discipline', '/discipline', 1, TRUE, CURRENT_TIMESTAMP)
-                RETURNING id;
-            """)
-            disc_mod_id = cur.fetchone()[0]
-            # Grant permission to all existing users
-            cur.execute("SELECT user_id FROM user_master;")
-            users = cur.fetchall()
-            for (uid,) in users:
-                cur.execute("""
-                    INSERT INTO user_module_permission (user_id, module_id, created_at)
-                    VALUES (%s, %s, CURRENT_TIMESTAMP)
-                    ON CONFLICT DO NOTHING;
-                """, (uid, disc_mod_id))
-        else:
-            disc_mod_id = disc_mod[0]
-            # Grant permission if missing
-            cur.execute("SELECT user_id FROM user_master;")
-            users = cur.fetchall()
-            for (uid,) in users:
-                cur.execute("""
-                    SELECT 1 FROM user_module_permission WHERE user_id = %s AND module_id = %s;
-                """, (uid, disc_mod_id))
-                if not cur.fetchone():
-                    cur.execute("""
-                        INSERT INTO user_module_permission (user_id, module_id, created_at)
-                        VALUES (%s, %s, CURRENT_TIMESTAMP);
-                    """, (uid, disc_mod_id))
+        # Ensure module_code column exists on module_master
+        cur.execute("""
+            DO $$
+            BEGIN
+                IF NOT EXISTS (
+                    SELECT 1 FROM information_schema.columns
+                    WHERE table_name='module_master' AND column_name='module_code'
+                ) THEN
+                    ALTER TABLE module_master ADD COLUMN module_code VARCHAR(50);
+                END IF;
+            END $$;
+        """)
 
-        # 5. Ensure Social Media Hub Module is in module_master
-        cur.execute("SELECT id FROM module_master WHERE module_name = 'Social Media Hub' OR route = '/social-media';")
-        sm_mod = cur.fetchone()
-        if not sm_mod:
-            cur.execute("""
-                INSERT INTO module_master (module_name, route, sequence_no, is_active, created_at)
-                VALUES ('Social Media Hub', '/social-media', 4, TRUE, CURRENT_TIMESTAMP)
-                RETURNING id;
-            """)
-            sm_mod_id = cur.fetchone()[0]
-            # Grant permission to all existing users
-            cur.execute("SELECT user_id FROM user_master;")
-            users = cur.fetchall()
-            for (uid,) in users:
-                cur.execute("""
-                    INSERT INTO user_module_permission (user_id, module_id, created_at)
-                    VALUES (%s, %s, CURRENT_TIMESTAMP)
-                    ON CONFLICT DO NOTHING;
-                """, (uid, sm_mod_id))
-        else:
-            sm_mod_id = sm_mod[0]
-            cur.execute("SELECT user_id FROM user_master;")
-            users = cur.fetchall()
-            for (uid,) in users:
-                cur.execute("""
-                    SELECT 1 FROM user_module_permission WHERE user_id = %s AND module_id = %s;
-                """, (uid, sm_mod_id))
-                if not cur.fetchone():
-                    cur.execute("""
-                        INSERT INTO user_module_permission (user_id, module_id, created_at)
-                        VALUES (%s, %s, CURRENT_TIMESTAMP);
-                    """, (uid, sm_mod_id))
+        # 4. Standard Modules Seeding & Normalization
+        core_modules = [
+            {"name": "Discipline", "route": "/discipline", "code": "discipline", "seq": 1},
+            {"name": "Career", "route": "/career", "code": "career", "seq": 2},
+            {"name": "Social Media Hub", "route": "/social-media", "code": "social_media", "seq": 3},
+            {"name": "Admin", "route": "/admin", "code": "admin", "seq": 99},
+        ]
 
-        # 6. Initialize Social Media Hub Schema (social_accounts, social_content, etc.)
+        for mod in core_modules:
+            cur.execute("""
+                SELECT id FROM module_master 
+                WHERE module_name = %s OR route = %s OR module_code = %s;
+            """, (mod["name"], mod["route"], mod["code"]))
+            existing = cur.fetchone()
+            if not existing:
+                cur.execute("""
+                    INSERT INTO module_master (module_name, route, module_code, sequence_no, is_active, created_at)
+                    VALUES (%s, %s, %s, %s, TRUE, CURRENT_TIMESTAMP);
+                """, (mod["name"], mod["route"], mod["code"], mod["seq"]))
+            else:
+                # Update module_code and sequence_no if missing
+                cur.execute("""
+                    UPDATE module_master
+                    SET module_code = %s, sequence_no = %s
+                    WHERE id = %s AND (module_code IS NULL OR module_code != %s OR sequence_no != %s);
+                """, (mod["code"], mod["seq"], existing[0], mod["code"], mod["seq"]))
+
+        # 5. Initialize Social Media Hub Schema (social_accounts, social_content, etc.)
         create_social_media_schema(conn)
 
         conn.commit()
-        print("✓ Database tables, indexes, Discipline, and Social Media Hub schema verified successfully.")
+        print("✓ Database tables, indexes, core modules, and schemas verified successfully.")
     except Exception as e:
         if conn:
             conn.rollback()

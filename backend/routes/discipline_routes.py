@@ -5,6 +5,7 @@ import psycopg2
 from psycopg2.extras import Json
 from flask import Blueprint, request, jsonify
 from database.db import get_connection
+from utils.helpers import module_required
 
 discipline_blueprint = Blueprint('discipline', __name__)
 
@@ -17,7 +18,12 @@ def calculate_score(gym, job, study, project):
     completed = sum([1 for h in [gym, job, study, project] if h])
     return round((completed / 4.0) * 100, 2)
 
-def get_user_id():
+def get_user_id(current_user=None):
+    if current_user and isinstance(current_user, dict) and "user_id" in current_user:
+        return int(current_user["user_id"])
+    req_user = getattr(request, "current_user", None)
+    if req_user and isinstance(req_user, dict) and "user_id" in req_user:
+        return int(req_user["user_id"])
     auth_header = request.headers.get("Authorization")
     if auth_header and auth_header.startswith("Bearer "):
         try:
@@ -28,23 +34,15 @@ def get_user_id():
                 return int(payload["user_id"])
         except Exception:
             pass
-
-    uid = request.args.get('user_id')
-    if not uid:
-        json_data = request.get_json(silent=True)
-        if json_data and isinstance(json_data, dict):
-            uid = json_data.get('user_id')
-    try:
-        return int(uid) if uid else 1
-    except (ValueError, TypeError):
-        return 1
+    return 1
 
 # -----------------------------------------------------------------------------
 # 1. GET TODAY'S STATUS & SUMMARY (For Main LifeOS Dashboard Card & Top Widget)
 # -----------------------------------------------------------------------------
 @discipline_blueprint.route('/api/discipline/today', methods=['GET'])
-def get_today_summary():
-    user_id = get_user_id()
+@module_required("discipline")
+def get_today_summary(current_user=None):
+    user_id = get_user_id(current_user)
     today = get_today_date()
     today_str = today.isoformat()
 
@@ -164,8 +162,9 @@ def get_today_summary():
 # 2. GET OR TOGGLE SINGLE DAY
 # -----------------------------------------------------------------------------
 @discipline_blueprint.route('/api/discipline/day/<date_str>', methods=['GET'])
-def get_day_data(date_str):
-    user_id = get_user_id()
+@module_required("discipline")
+def get_day_data(date_str, current_user=None):
+    user_id = get_user_id(current_user)
     try:
         req_date = datetime.date.fromisoformat(date_str)
     except ValueError:
@@ -208,8 +207,9 @@ def get_day_data(date_str):
 
 
 @discipline_blueprint.route('/api/discipline/day/<date_str>', methods=['POST'])
-def save_day_data(date_str):
-    user_id = get_user_id()
+@module_required("discipline")
+def save_day_data(date_str, current_user=None):
+    user_id = get_user_id(current_user)
     try:
         req_date = datetime.date.fromisoformat(date_str)
     except ValueError:
@@ -281,8 +281,9 @@ def save_day_data(date_str):
 # 3. GET MONTH CALENDAR DATA (Day-wise grid + Heatmap intensity)
 # -----------------------------------------------------------------------------
 @discipline_blueprint.route('/api/discipline/month/<int:year>/<int:month>', methods=['GET'])
-def get_month_calendar(year, month):
-    user_id = get_user_id()
+@module_required("discipline")
+def get_month_calendar(year, month, current_user=None):
+    user_id = get_user_id(current_user)
     if month < 1 or month > 12:
         return jsonify({"success": False, "error": "Invalid month"}), 400
 
@@ -399,8 +400,9 @@ def get_month_calendar(year, month):
 # 4. GET FULL YEAR 365-DAY HEATMAP DATA
 # -----------------------------------------------------------------------------
 @discipline_blueprint.route('/api/discipline/year/<int:year>', methods=['GET'])
-def get_year_heatmap(year):
-    user_id = get_user_id()
+@module_required("discipline")
+def get_year_heatmap(year, current_user=None):
+    user_id = get_user_id(current_user)
     today = get_today_date()
     start_date = datetime.date(year, 1, 1)
     end_date = datetime.date(year, 12, 31)
@@ -487,8 +489,9 @@ def get_year_heatmap(year):
 # 5. GET FULL QUARTERLY ANALYTICS, STREAKS, HABIT INSIGHTS & BMW S1000 PROGRESS
 # -----------------------------------------------------------------------------
 @discipline_blueprint.route('/api/discipline/analytics/<int:year>', methods=['GET'])
-def get_analytics(year):
-    user_id = get_user_id()
+@module_required("discipline")
+def get_analytics(year, current_user=None):
+    user_id = get_user_id(current_user)
     today = get_today_date()
     start_date = datetime.date(year, 1, 1)
     end_date = datetime.date(year, 12, 31)
@@ -797,8 +800,9 @@ DEFAULT_ROUTINE_PRESETS = [
 ]
 
 @discipline_blueprint.route('/api/discipline/month-matrix/<int:year>/<int:month>', methods=['GET'])
-def get_month_matrix(year, month):
-    user_id = get_user_id()
+@module_required("discipline")
+def get_month_matrix(year, month, current_user=None):
+    user_id = get_user_id(current_user)
     if month < 1 or month > 12:
         return jsonify({"success": False, "error": "Invalid month"}), 400
 
@@ -1005,8 +1009,9 @@ def get_month_matrix(year, month):
 # 6. TOGGLE SINGLE HABIT CELL (Instant Click Persist)
 # -----------------------------------------------------------------------------
 @discipline_blueprint.route('/api/discipline/toggle-cell', methods=['POST'])
-def toggle_habit_cell():
-    user_id = get_user_id()
+@module_required("discipline")
+def toggle_habit_cell(current_user=None):
+    user_id = get_user_id(current_user)
     data = request.get_json(silent=True) or {}
     date_str = data.get("date")
     habit_key = data.get("habit_key")

@@ -1,8 +1,10 @@
 import { useState } from "react";
 import UserMaster from "./UserMaster";
+import UserPermissions from "./UserPermissions";
 
 const menuItems = [
   { key: "user-master", label: "👤 User Master" },
+  { key: "permissions", label: "🔐 Module Permissions" },
 ];
 
 function AdminModule() {
@@ -10,7 +12,7 @@ function AdminModule() {
 
   return (
     <div style={{ display: "flex", background: "#fff", borderRadius: 10, border: "1px solid #e9ecef", overflow: "hidden", minHeight: 500 }}>
-      <div style={{ width: 210, borderRight: "1px solid #e9ecef", padding: "16px 10px", background: "#fafafa" }}>
+      <div style={{ width: 220, borderRight: "1px solid #e9ecef", padding: "16px 10px", background: "#fafafa" }}>
         <div style={{ fontSize: 11, fontWeight: 700, color: "#9ca3af", padding: "4px 12px 10px", textTransform: "uppercase", letterSpacing: ".05em" }}>
           Admin Panel
         </div>
@@ -24,11 +26,12 @@ function AdminModule() {
           </div>
         ))}
       </div>
-      <div style={{ flex: 1, padding: 24 }}>
-        <div style={{ fontSize: 16, fontWeight: 700, color: "#1f2937", marginBottom: 20 }}>
+      <div style={{ flex: 1, padding: 24, overflowX: "auto" }}>
+        <div style={{ fontSize: 18, fontWeight: 800, color: "#1f2937", marginBottom: 20 }}>
           {menuItems.find((m) => m.key === activeMenu)?.label}
         </div>
         {activeMenu === "user-master" && <UserMaster />}
+        {activeMenu === "permissions" && <UserPermissions />}
       </div>
     </div>
   );

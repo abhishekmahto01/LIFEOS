@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import api from "../services/api";
+import { permissionService } from "../services/permissionService";
 import {
   Zap,
   Flame,
@@ -22,6 +23,7 @@ import {
   Globe,
   PlusCircle,
   Calendar,
+  Lock,
 } from "lucide-react";
 import { disciplineService } from "../services/disciplineService";
 import { socialMediaService } from "../services/socialMediaService";
@@ -48,46 +50,48 @@ function Dashboard() {
         return;
       }
 
-      // Fetch user allowed modules
-      const res = await api.get(
-        `/api/dashboard/modules/${user.user_id}`
-      );
-
-      // Fetch live discipline summary
-      try {
-        const discRes = await disciplineService.getTodaySummary(user.user_id);
-        if (discRes.success) {
-          setDisciplineSummary(discRes);
-        }
-      } catch (e) {
-        console.error("Discipline summary fetch error:", e);
-      }
-
-      // Fetch live social media summary
-      try {
-        const smRes = await socialMediaService.getDashboardSummary();
-        if (smRes.success) {
-          setSocialSummary(smRes);
-        }
-      } catch (e) {
-        console.error("Social media summary fetch error:", e);
-      }
-
-      const fetchedModules = res.data || [];
-      const hasSocial = fetchedModules.some(
-        (m) => m.route === "/social-media" || m.module_name?.toLowerCase().includes("social")
-      );
-
-      if (!hasSocial) {
-        fetchedModules.push({
-          id: "sm-hub",
-          module_name: "Social Media Hub",
-          route: "/social-media",
-          sequence_no: 4,
-        });
-      }
-
+      // Fetch user allowed modules via permissionService (/api/me/modules)
+      const res = await permissionService.getMyModules();
+      const fetchedModules = res.modules || [];
       setModules(fetchedModules);
+
+      const hasDiscipline = fetchedModules.some(
+        (m) =>
+          m.module_code === "discipline" ||
+          m.module_name?.toLowerCase() === "discipline" ||
+          m.route === "/discipline"
+      );
+
+      const hasSocial = fetchedModules.some(
+        (m) =>
+          m.module_code === "social_media" ||
+          m.module_name?.toLowerCase().includes("social") ||
+          m.route === "/social-media"
+      );
+
+      // Fetch live discipline summary only if user has access to discipline
+      if (hasDiscipline) {
+        try {
+          const discRes = await disciplineService.getTodaySummary(user.user_id);
+          if (discRes.success) {
+            setDisciplineSummary(discRes);
+          }
+        } catch (e) {
+          console.error("Discipline summary fetch error:", e);
+        }
+      }
+
+      // Fetch live social media summary only if user has access to social media
+      if (hasSocial) {
+        try {
+          const smRes = await socialMediaService.getDashboardSummary();
+          if (smRes.success) {
+            setSocialSummary(smRes);
+          }
+        } catch (e) {
+          console.error("Social media summary fetch error:", e);
+        }
+      }
     } catch (error) {
       console.error("Error loading dashboard modules:", error);
     } finally {
@@ -133,17 +137,42 @@ function Dashboard() {
 
       {/* Sleek Minimalist Modules Grid */}
       <div className="modules-dashboard-grid">
-        {modules.map((mod) => {
+        {modules.length === 0 ? (
+          <div
+            style={{
+              gridColumn: "1 / -1",
+              background: "rgba(255, 255, 255, 0.02)",
+              border: "1px dashed rgba(255, 255, 255, 0.12)",
+              borderRadius: "16px",
+              padding: "48px 24px",
+              textAlign: "center",
+              color: "#94a3b8",
+            }}
+          >
+            <Lock size={32} style={{ color: "#64748b", marginBottom: "16px" }} />
+            <h3 style={{ color: "#e2e8f0", fontSize: "1.15rem", marginBottom: "8px" }}>
+              No Module Access Assigned
+            </h3>
+            <p style={{ maxWidth: "420px", margin: "0 auto", fontSize: "0.9rem", lineHeight: 1.6 }}>
+              You do not currently have access to any LIFEOS modules. Please contact an administrator to assign module permissions to your account.
+            </p>
+          </div>
+        ) : (
+          modules.map((mod) => {
           const isDiscipline =
+            mod.module_code === "discipline" ||
             mod.module_name?.toLowerCase() === "discipline" ||
             mod.route === "/discipline";
           const isCareer =
+            mod.module_code === "career" ||
             mod.module_name?.toLowerCase() === "career" ||
             mod.route === "/career";
           const isAdmin =
+            mod.module_code === "admin" ||
             mod.module_name?.toLowerCase() === "admin" ||
             mod.route === "/admin";
           const isSocialMedia =
+            mod.module_code === "social_media" ||
             mod.module_name?.toLowerCase().includes("social") ||
             mod.route === "/social-media";
 
@@ -432,7 +461,8 @@ function Dashboard() {
               </div>
             </div>
           );
-        })}
+        })
+      )}
       </div>
     </div>
   );
