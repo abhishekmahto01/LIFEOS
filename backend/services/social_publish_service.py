@@ -21,8 +21,9 @@ from services.instagram_publish_service import (
     publish_instagram_reel,
     recalculate_content_overall_status
 )
+from services.facebook_publish_service import publish_facebook_video
 
-SUPPORTED_PLATFORMS = {"YOUTUBE", "INSTAGRAM"}
+SUPPORTED_PLATFORMS = {"YOUTUBE", "INSTAGRAM", "FACEBOOK"}
 MAX_PLATFORM_TARGETS = 5
 
 
@@ -97,9 +98,38 @@ def _dispatch_instagram_publish(user_id: int, content_id: int, account_id: int, 
         }
 
 
+def _dispatch_facebook_publish(user_id: int, content_id: int, account_id: int, options: dict = None) -> dict:
+    """
+    Dispatches publishing to the Facebook Page video publisher.
+    """
+    try:
+        res = publish_facebook_video(user_id=user_id, content_id=content_id, account_id=account_id)
+        return {
+            "platform": "FACEBOOK",
+            "account_id": account_id,
+            "success": res.get("success", False),
+            "publish_status": res.get("publish_status", "FAILED"),
+            "publish_id": res.get("publish_id"),
+            "publish_url": res.get("publish_url"),
+            "already_published": res.get("already_published", False),
+            "retry_allowed": res.get("retry_allowed", True),
+            "error": res.get("error")
+        }
+    except Exception as e:
+        return {
+            "platform": "FACEBOOK",
+            "account_id": account_id,
+            "success": False,
+            "publish_status": "FAILED",
+            "already_published": False,
+            "error": str(e)
+        }
+
+
 PLATFORM_DISPATCHERS = {
     "YOUTUBE": _dispatch_youtube_publish,
     "INSTAGRAM": _dispatch_instagram_publish,
+    "FACEBOOK": _dispatch_facebook_publish,
 }
 
 

@@ -223,6 +223,49 @@ class TestInstagramOAuth(unittest.TestCase):
         self.assertIn("code=oauth_denied", res.location)
 
     @patch("requests.get")
+    def test_07b_connects_every_linked_instagram_account(self, mock_get):
+        """A user with two IG Professional accounts on separate Pages gets both connected."""
+        mock_short_token = MagicMock(status_code=200)
+        mock_short_token.json.return_value = {"access_token": "EAA_short_multi", "expires_in": 7200}
+        mock_long_token = MagicMock(status_code=200)
+        mock_long_token.json.return_value = {"access_token": "EAA_long_multi", "expires_in": 5184000}
+        mock_accounts = MagicMock(status_code=200)
+        mock_accounts.json.return_value = {
+            "data": [
+                {"id": "page_a", "name": "Page A",
+                 "instagram_business_account": {"id": "1784_multi_a", "username": "brand_public"}},
+                {"id": "page_b", "name": "Page B (no IG)"},
+                {"id": "page_c", "name": "Page C",
+                 "instagram_business_account": {"id": "1784_multi_b", "username": "brand_second"}},
+            ]
+        }
+        mock_get.side_effect = [mock_short_token, mock_long_token, mock_accounts]
+
+        auth_data = get_instagram_authorization_url(user_id=self.user1_id)
+        res = self.app.get(f"/api/social-media/oauth/instagram/callback?state={auth_data['state']}&code=multi_code")
+        self.assertEqual(res.status_code, 302)
+        self.assertIn("status=success", res.location)
+        self.assertIn("brand_public", res.location)
+        self.assertIn("brand_second", res.location)
+
+        conn = get_connection()
+        cur = conn.cursor()
+        cur.execute("""
+            SELECT platform_account_id, account_username, metadata->>'facebook_page_id'
+            FROM social_accounts
+            WHERE user_id = %s AND platform = 'INSTAGRAM'
+            ORDER BY platform_account_id;
+        """, (self.user1_id,))
+        rows = cur.fetchall()
+        cur.close()
+        conn.close()
+
+        self.assertEqual(rows, [
+            ("1784_multi_a", "brand_public", "page_a"),
+            ("1784_multi_b", "brand_second", "page_c"),
+        ])
+
+    @patch("requests.get")
     def test_07_successful_connection_encrypts_tokens_and_stores_in_db(self, mock_get):
         """Test complete successful Instagram OAuth flow, token encryption, and database storage."""
         # 1. Mock Meta Graph API responses

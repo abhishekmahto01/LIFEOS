@@ -60,6 +60,23 @@ export const socialMediaService = {
     return response.data;
   },
 
+  // 8b. Publish an uploaded post to a specific Instagram account as a Reel.
+  // Runs synchronously on the backend (container create → poll → publish).
+  publishInstagram: async (contentId, accountId) => {
+    const response = await api.post(`/api/social-media/content/${contentId}/publish/instagram`, {
+      account_id: accountId,
+    });
+    return response.data;
+  },
+
+  // 8c. Upload a post's video to a connected Facebook Page.
+  publishFacebook: async (contentId, accountId) => {
+    const response = await api.post(`/api/social-media/content/${contentId}/publish/facebook`, {
+      account_id: accountId,
+    });
+    return response.data;
+  },
+
   // 9. Post History
   getContentList: async (params = {}) => {
     const response = await api.get("/api/social-media/history", { params });

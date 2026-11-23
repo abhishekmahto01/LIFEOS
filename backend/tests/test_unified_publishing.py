@@ -204,15 +204,15 @@ class TestUnifiedPublishing(unittest.TestCase):
         self.assertIn("Valid account_id required", res2.get_json()["error"])
 
     def test_07_unsupported_platform_rejected(self):
-        """Test unsupported platform (e.g. FACEBOOK, TIKTOK) returns 400."""
+        """Test unsupported platform (e.g. TIKTOK) returns 400."""
         cid = self._insert_social_content(user_id=self.user1_id)
         res = self.app.post(
             "/api/social-media/publish",
-            json={"content_id": cid, "targets": [{"platform": "FACEBOOK", "account_id": 1}]},
+            json={"content_id": cid, "targets": [{"platform": "TIKTOK", "account_id": 1}]},
             headers=self.headers_user1
         )
         self.assertEqual(res.status_code, 400)
-        self.assertIn("Unsupported platform 'FACEBOOK'", res.get_json()["error"])
+        self.assertIn("Unsupported platform 'TIKTOK'", res.get_json()["error"])
 
     def test_08_duplicate_exact_targets_rejected(self):
         """Test duplicate targets with same platform and account_id return 400."""

@@ -52,11 +52,20 @@ export function CreatePost() {
   const [youtubeChunkProgress, setYoutubeChunkProgress] = useState(0);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
 
+  // Meta publishing (Instagram Reels + Facebook Page videos) runs independently of
+  // the YouTube polling pipeline. metaResults: { INSTAGRAM|FACEBOOK: {status, url, error} }
+  // where status is 'PUBLISHING' | 'PUBLISHED' | 'FAILED'.
+  const [selectedIgAccountId, setSelectedIgAccountId] = useState(null);
+  const [selectedFbAccountId, setSelectedFbAccountId] = useState(null);
+  const [metaResults, setMetaResults] = useState({});
+
   const videoInputRef = useRef(null);
   const thumbInputRef = useRef(null);
   const pollTimeoutRef = useRef(null);
   const pollAttemptsRef = useRef(0);
   const isMountedRef = useRef(true);
+  // What the last submit targeted, so Retry re-runs only the platforms that failed.
+  const lastSubmitRef = useRef({ youtube: false, metaTargets: [] });
 
   const fetchConnectedAccounts = useCallback(() => {
     setAccountsLoading(true);
@@ -159,6 +168,7 @@ export function CreatePost() {
     setPipelineState(null);
     setIsSubmitting(false);
     setShowSuccessModal(false);
+    setMetaResults({});
 
     if (videoInputRef.current) {
       videoInputRef.current.value = "";
@@ -170,6 +180,64 @@ export function CreatePost() {
 
   const youtubeAccounts = accounts.filter((a) => a.platform?.toUpperCase() === "YOUTUBE" && a.connection_status === "ACTIVE");
   const selectedAccount = youtubeAccounts.find((a) => String(a.id) === String(selectedAccountId)) || youtubeAccounts[0];
+  const instagramAccounts = accounts.filter((a) => a.platform?.toUpperCase() === "INSTAGRAM" && a.connection_status === "ACTIVE");
+  const selectedIgAccount =
+    instagramAccounts.find((a) => String(a.id) === String(selectedIgAccountId)) || instagramAccounts[0];
+
+  const facebookPages = accounts.filter((a) => a.platform?.toUpperCase() === "FACEBOOK" && a.connection_status === "ACTIVE");
+  const selectedFbAccount =
+    facebookPages.find((a) => String(a.id) === String(selectedFbAccountId)) || facebookPages[0];
+
+  const META_PUBLISHERS = {
+    INSTAGRAM: socialMediaService.publishInstagram,
+    FACEBOOK: socialMediaService.publishFacebook,
+  };
+  const META_LABELS = { INSTAGRAM: "Instagram", FACEBOOK: "Facebook" };
+
+  const selectedPlatformNames = [
+    platforms.youtube && "YouTube",
+    platforms.instagram && "Instagram",
+    platforms.facebook && "Facebook",
+  ].filter(Boolean);
+  const targetLabel = selectedPlatformNames.join(" + ") || "Social Media";
+  const youtubeBlocksSubmit = platforms.youtube && (!selectedAccount || !selectedAccount.can_upload);
+
+  const setMetaResult = (platform, result) =>
+    setMetaResults((prev) => ({ ...prev, [platform]: result }));
+
+  // Publishes to each selected Meta target in parallel. When YouTube is not part of
+  // the post, these results also drive the main pipeline state and success modal.
+  const publishToMeta = async (contentId, targets, drivesPipeline) => {
+    const outcomes = await Promise.all(
+      targets.map(async ({ platform, accountId }) => {
+        setMetaResult(platform, { status: "PUBLISHING" });
+        try {
+          const res = await META_PUBLISHERS[platform](contentId, accountId);
+          if (!res.success) throw new Error(res.error || res.message || `${META_LABELS[platform]} publishing failed.`);
+          const result = { status: "PUBLISHED", url: res.publish_url || null };
+          if (isMountedRef.current) setMetaResult(platform, result);
+          return { platform, ...result };
+        } catch (err) {
+          const error =
+            err.response?.data?.error || err.response?.data?.message || err.message || `${META_LABELS[platform]} publishing failed.`;
+          if (isMountedRef.current) setMetaResult(platform, { status: "FAILED", error });
+          return { platform, status: "FAILED", error };
+        }
+      })
+    );
+
+    if (!drivesPipeline || !isMountedRef.current) return;
+    const firstSuccess = outcomes.find((o) => o.status === "PUBLISHED");
+    setIsSubmitting(false);
+    if (firstSuccess) {
+      setPipelineState("PUBLISHED");
+      setPublishedUrl(firstSuccess.url);
+      setShowSuccessModal(true);
+    } else {
+      setPipelineState("FAILED");
+      setErrorMessage(outcomes.map((o) => `${META_LABELS[o.platform]}: ${o.error}`).join(" | "));
+    }
+  };
 
   const handleVideoSelect = (e) => {
     const file = e.target.files[0];
@@ -265,6 +333,23 @@ export function CreatePost() {
   const handleRetry = async () => {
     if (!activeContentId) return;
 
+    const { youtube: hadYouTube, metaTargets } = lastSubmitRef.current;
+    const failedMeta = metaTargets.filter((t) => metaResults[t.platform]?.status === "FAILED");
+
+    if (!hadYouTube) {
+      if (failedMeta.length === 0) return;
+      setIsSubmitting(true);
+      setShowSuccessModal(false);
+      setErrorMessage(null);
+      setPipelineState("QUEUED");
+      publishToMeta(activeContentId, failedMeta, true);
+      return;
+    }
+
+    if (failedMeta.length > 0) {
+      publishToMeta(activeContentId, failedMeta, false);
+    }
+
     try {
       setIsSubmitting(true);
       setShowSuccessModal(false);
@@ -293,13 +378,32 @@ export function CreatePost() {
       return;
     }
 
-    if (!selectedAccount) {
+    const toYouTube = platforms.youtube;
+    const toInstagram = platforms.instagram;
+    const toFacebook = platforms.facebook;
+
+    if (!toYouTube && !toInstagram && !toFacebook) {
+      setErrorMessage("Select at least one platform to publish to.");
+      return;
+    }
+
+    if (toYouTube && !selectedAccount) {
       setErrorMessage("Please select a connected YouTube account.");
       return;
     }
 
-    if (!selectedAccount.can_upload) {
+    if (toYouTube && !selectedAccount.can_upload) {
       setErrorMessage("Your YouTube account requires reconnection to grant upload permissions.");
+      return;
+    }
+
+    if (toInstagram && !selectedIgAccount) {
+      setErrorMessage("Please connect an Instagram Professional account first.");
+      return;
+    }
+
+    if (toFacebook && !selectedFbAccount) {
+      setErrorMessage("Please connect a Facebook Page first.");
       return;
     }
 
@@ -310,6 +414,7 @@ export function CreatePost() {
     setYoutubeChunkProgress(0);
     setPipelineState("UPLOADING_LOCAL");
     setPublishedUrl(null);
+    setMetaResults({});
 
     try {
       const formData = new FormData();
@@ -325,13 +430,20 @@ export function CreatePost() {
       formData.append("category_id", categoryId);
       formData.append("publish_now", "true");
 
-      const platformTargets = [
-        {
+      const platformTargets = [];
+      if (toYouTube) {
+        platformTargets.push({
           platform: "YOUTUBE",
           account_id: selectedAccount.id,
           privacy_status: privacyStatus,
-        },
-      ];
+        });
+      }
+      if (toInstagram) {
+        platformTargets.push({ platform: "INSTAGRAM", account_id: selectedIgAccount.id });
+      }
+      if (toFacebook) {
+        platformTargets.push({ platform: "FACEBOOK", account_id: selectedFbAccount.id });
+      }
       formData.append("platforms", JSON.stringify(platformTargets));
 
       const res = await socialMediaService.uploadAndCreatePost(formData, (progressEvent) => {
@@ -342,8 +454,19 @@ export function CreatePost() {
       });
 
       if (res.success && res.data) {
+        const contentId = res.data.content_id;
+        setActiveContentId(contentId);
         setPipelineState("QUEUED");
-        startStatusPolling(res.data.content_id);
+        if (toYouTube) {
+          startStatusPolling(contentId);
+        }
+        const metaTargets = [];
+        if (toInstagram) metaTargets.push({ platform: "INSTAGRAM", accountId: selectedIgAccount.id });
+        if (toFacebook) metaTargets.push({ platform: "FACEBOOK", accountId: selectedFbAccount.id });
+        lastSubmitRef.current = { youtube: toYouTube, metaTargets };
+        if (metaTargets.length > 0) {
+          publishToMeta(contentId, metaTargets, !toYouTube);
+        }
       } else {
         setErrorMessage(res.error || "Upload failed.");
         setPipelineState("FAILED");
@@ -372,7 +495,7 @@ export function CreatePost() {
       )}
 
       {/* Warning if YouTube account needs reconnecting */}
-      {selectedAccount && !selectedAccount.can_upload && (
+      {platforms.youtube && selectedAccount && !selectedAccount.can_upload && (
         <div className="sm-alert warning" style={{ marginBottom: "20px" }}>
           <AlertCircle size={18} />
           <div>
@@ -393,7 +516,7 @@ export function CreatePost() {
       )}
 
       {/* Warning if no accounts connected */}
-      {!accountsLoading && youtubeAccounts.length === 0 && (
+      {!accountsLoading && platforms.youtube && youtubeAccounts.length === 0 && (
         <div className="sm-alert info" style={{ marginBottom: "20px" }}>
           <AlertCircle size={18} />
           <div>
@@ -426,10 +549,10 @@ export function CreatePost() {
             <div>
               <div style={{ fontWeight: "700", fontSize: "14px" }}>
                 {pipelineState === "UPLOADING_LOCAL" && "Uploading to LifeOS Secure Storage..."}
-                {pipelineState === "QUEUED" && "Queued for YouTube Publishing..."}
+                {pipelineState === "QUEUED" && `Queued for ${targetLabel} Publishing...`}
                 {pipelineState === "UPLOADING_YOUTUBE" && `Streaming Chunks to YouTube (${youtubeChunkProgress}%)...`}
                 {pipelineState === "PROCESSING_YOUTUBE" && "YouTube Processing & Finalizing..."}
-                {pipelineState === "PUBLISHED" && "Successfully Published to YouTube!"}
+                {pipelineState === "PUBLISHED" && `Successfully Published to ${targetLabel}!`}
                 {pipelineState === "FAILED" && "Publishing Encountered an Error"}
               </div>
               <div style={{ fontSize: "12px", color: "var(--text-muted, #64748b)", marginTop: "2px" }}>
@@ -451,7 +574,7 @@ export function CreatePost() {
                 className="sm-btn-primary"
                 style={{ padding: "8px 14px", fontSize: "13px", display: "inline-flex", alignItems: "center", gap: "6px", textDecoration: "none" }}
               >
-                <ExternalLink size={14} /> Watch on YouTube
+                <ExternalLink size={14} /> View Published Post
               </a>
             )}
             {pipelineState === "FAILED" && (
@@ -546,21 +669,100 @@ export function CreatePost() {
                 </button>
                 <button
                   type="button"
-                  className="sm-platform-select-btn disabled"
-                  title="Phase 7 (Meta Integration)"
-                  disabled
+                  className={`sm-platform-select-btn ${platforms.instagram ? "active" : ""} ${instagramAccounts.length === 0 ? "disabled" : ""}`}
+                  title={instagramAccounts.length === 0 ? "Connect an Instagram Professional account first" : "Publish as an Instagram Reel"}
+                  disabled={instagramAccounts.length === 0}
+                  onClick={() => setPlatforms({ ...platforms, instagram: !platforms.instagram })}
                 >
-                  <Instagram size={16} /> Instagram (Phase 7)
+                  <Instagram size={16} /> Instagram Reel
                 </button>
                 <button
                   type="button"
-                  className="sm-platform-select-btn disabled"
-                  title="Phase 7 (Meta Integration)"
-                  disabled
+                  className={`sm-platform-select-btn ${platforms.facebook ? "active" : ""} ${facebookPages.length === 0 ? "disabled" : ""}`}
+                  title={facebookPages.length === 0 ? "Connect a Facebook Page first" : "Post the video to your Facebook Page"}
+                  disabled={facebookPages.length === 0}
+                  onClick={() => setPlatforms({ ...platforms, facebook: !platforms.facebook })}
                 >
-                  <Facebook size={16} /> Facebook (Phase 7)
+                  <Facebook size={16} /> Facebook Page
                 </button>
               </div>
+
+              {/* Instagram Account Selection — choose which IG account this post goes to */}
+              {platforms.instagram && instagramAccounts.length > 0 && (
+                <div style={{ marginTop: "12px" }}>
+                  <label style={{ fontSize: "12px", fontWeight: "600", display: "block", marginBottom: "4px" }}>
+                    Post to Instagram Account
+                  </label>
+                  <select
+                    className="sm-form-input"
+                    value={selectedIgAccount?.id || ""}
+                    onChange={(e) => setSelectedIgAccountId(Number(e.target.value))}
+                    disabled={instagramAccounts.length === 1}
+                  >
+                    {instagramAccounts.map((acc) => (
+                      <option key={acc.id} value={acc.id}>
+                        @{acc.account_username || acc.account_name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
+              {/* Facebook Page Selection */}
+              {platforms.facebook && facebookPages.length > 0 && (
+                <div style={{ marginTop: "12px" }}>
+                  <label style={{ fontSize: "12px", fontWeight: "600", display: "block", marginBottom: "4px" }}>
+                    Post to Facebook Page
+                  </label>
+                  <select
+                    className="sm-form-input"
+                    value={selectedFbAccount?.id || ""}
+                    onChange={(e) => setSelectedFbAccountId(Number(e.target.value))}
+                    disabled={facebookPages.length === 1}
+                  >
+                    {facebookPages.map((acc) => (
+                      <option key={acc.id} value={acc.id}>
+                        {acc.account_name || `Page ${acc.platform_account_id}`}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
+              {Object.entries(metaResults).map(([platform, result]) => {
+                const PlatformIcon = platform === "FACEBOOK" ? Facebook : Instagram;
+                const label = META_LABELS[platform];
+                return (
+                  <div
+                    key={platform}
+                    style={{
+                      marginTop: "12px",
+                      fontSize: "12px",
+                      padding: "8px 12px",
+                      borderRadius: "8px",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "8px",
+                      background: result.status === "FAILED" ? "rgba(220, 38, 38, 0.1)" : result.status === "PUBLISHED" ? "rgba(16, 185, 129, 0.1)" : "rgba(59, 130, 246, 0.1)",
+                      color: result.status === "FAILED" ? "#991b1b" : result.status === "PUBLISHED" ? "#065f46" : "#1e40af",
+                    }}
+                  >
+                    <PlatformIcon size={14} />
+                    {result.status === "PUBLISHING" && `Publishing to ${label} (this can take a minute)...`}
+                    {result.status === "PUBLISHED" && (
+                      <>
+                        Published on {label}.
+                        {result.url && (
+                          <a href={result.url} target="_blank" rel="noopener noreferrer" style={{ color: "inherit", fontWeight: 700 }}>
+                            View post
+                          </a>
+                        )}
+                      </>
+                    )}
+                    {result.status === "FAILED" && `${label} failed: ${result.error}`}
+                  </div>
+                );
+              })}
 
               {/* YouTube Account Selection if multiple exist */}
               {youtubeAccounts.length > 1 && (
@@ -691,15 +893,15 @@ export function CreatePost() {
             <button
               type="submit"
               className="sm-btn-primary"
-              disabled={isSubmitting || !selectedVideo || !selectedAccount || !selectedAccount.can_upload}
+              disabled={isSubmitting || !selectedVideo || selectedPlatformNames.length === 0 || youtubeBlocksSubmit}
               style={{ width: "100%", padding: "12px", fontSize: "14px", fontWeight: "700" }}
             >
               {isSubmitting ? (
                 <span style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "8px" }}>
-                  <Loader2 size={16} className="sm-spin" /> Publishing to YouTube...
+                  <Loader2 size={16} className="sm-spin" /> Publishing to {targetLabel}...
                 </span>
               ) : (
-                "🚀 Publish Video to YouTube"
+                `🚀 Publish Video to ${targetLabel}`
               )}
             </button>
           </div>
@@ -750,7 +952,7 @@ export function CreatePost() {
               Video Published!
             </h2>
             <p id="sm-success-modal-desc" className="sm-success-modal-text">
-              Your video was uploaded and processed successfully by YouTube. It is now live on your channel. Temporary upload files have been safely deleted from server storage.
+              Your video was published to {targetLabel}. Check each platform's status on this page for links to every post.
             </p>
 
             {postTitle && (
@@ -758,7 +960,7 @@ export function CreatePost() {
                 <div className="sm-success-video-info">
                   <span className="sm-success-video-name">{postTitle}</span>
                   <div className="sm-success-video-meta">
-                    <span className="sm-badge PUBLISHED">YouTube</span>
+                    <span className="sm-badge PUBLISHED">{targetLabel}</span>
                     <span>•</span>
                     <span>{privacyStatus}</span>
                   </div>
@@ -774,7 +976,7 @@ export function CreatePost() {
                   rel="noreferrer"
                   className="sm-btn-modal-primary"
                 >
-                  <ExternalLink size={16} /> Watch on YouTube
+                  <ExternalLink size={16} /> View Published Post
                 </a>
               )}
               <div className="sm-modal-actions-secondary-row">

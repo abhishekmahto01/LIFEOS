@@ -29,6 +29,12 @@ from services.instagram_oauth_service import (
     mark_instagram_account_error
 )
 from services.upload_service import get_safe_temp_path
+from utils.crypto import decrypt_token
+
+# The claim/record machinery below is shared by every Meta platform publisher
+# (Instagram Reels here, Facebook Page videos in facebook_publish_service).
+PLATFORM_LABELS = {"INSTAGRAM": "Instagram", "FACEBOOK": "Facebook Page"}
+IDEMPOTENCY_PREFIXES = {"INSTAGRAM": "ig", "FACEBOOK": "fb"}
 
 
 # =============================================================================
@@ -361,7 +367,8 @@ def claim_instagram_publish_slot(
     user_id: int,
     content_id: int,
     account_id: int,
-    is_retry: bool = False
+    is_retry: bool = False,
+    platform: str = "INSTAGRAM"
 ) -> dict:
     """
     Atomically claims a publish/retry slot using a short DB transaction with row-level locking:
@@ -376,6 +383,8 @@ def claim_instagram_publish_slot(
     """
     conn = None
     cur = None
+    expected_platform = platform
+    label = PLATFORM_LABELS.get(expected_platform, expected_platform.title())
     lease_seconds = Config.INSTAGRAM_PUBLISH_LEASE_SECONDS
     claim_token = secrets.token_hex(16)
 
@@ -418,27 +427,37 @@ def claim_instagram_publish_slot(
         # 2. Verify account ownership, platform, and usable connection
         cur.execute("""
             SELECT id, user_id, platform, platform_account_id, account_name,
-                   account_username, connection_status
+                   account_username, connection_status, encrypted_access_token
             FROM social_accounts
             WHERE id = %s AND user_id = %s;
         """, (account_id, user_id))
         acc_row = cur.fetchone()
 
         if not acc_row:
-            return {"claimed": False, "error": "Instagram account not found or access denied.", "status_code": 404}
+            return {"claimed": False, "error": f"{label} account not found or access denied.", "status_code": 404}
 
-        aid, a_uid, platform, ig_user_id, acc_name, acc_username, conn_status = acc_row
+        aid, a_uid, platform, ig_user_id, acc_name, acc_username, conn_status, enc_token = acc_row
 
-        if platform != "INSTAGRAM":
-            return {"claimed": False, "error": f"Selected account is not an Instagram account (platform: {platform}).", "status_code": 400}
+        if platform != expected_platform:
+            return {"claimed": False, "error": f"Selected account is not {'an' if label[0] in 'AEIOU' else 'a'} {label} account (platform: {platform}).", "status_code": 400}
 
         if conn_status != "ACTIVE":
-            return {"claimed": False, "error": f"Instagram account connection is in {conn_status} state. Please reconnect your account.", "status_code": 400}
+            return {"claimed": False, "error": f"{label} account connection is in {conn_status} state. Please reconnect your account.", "status_code": 400}
 
         # 3. Retrieve valid access token
-        token_ok, access_token, token_err = get_valid_instagram_access_token(account_id=aid, user_id=user_id, auto_refresh=True)
+        if expected_platform == "FACEBOOK":
+            # Page access tokens derived from a long-lived user token do not expire;
+            # they stay valid until the user revokes the app or loses Page admin access.
+            token_err = None
+            try:
+                access_token = decrypt_token(enc_token) if enc_token else None
+            except ValueError:
+                access_token = None
+            token_ok = bool(access_token)
+        else:
+            token_ok, access_token, token_err = get_valid_instagram_access_token(account_id=aid, user_id=user_id, auto_refresh=True)
         if not token_ok or not access_token:
-            return {"claimed": False, "error": token_err or "Failed to obtain valid Instagram access token. Please reconnect.", "status_code": 401}
+            return {"claimed": False, "error": token_err or f"Failed to obtain valid {label} access token. Please reconnect.", "status_code": 401}
 
         # 4. Check existing social_content_platforms row
         cur.execute("""
@@ -446,9 +465,9 @@ def claim_instagram_publish_slot(
                    platform_post_url, retry_count, claim_expires_at, published_at,
                    meta_container_id
             FROM social_content_platforms
-            WHERE content_id = %s AND platform = 'INSTAGRAM' AND account_id = %s
+            WHERE content_id = %s AND platform = %s AND account_id = %s
             FOR UPDATE;
-        """, (cid, aid))
+        """, (cid, expected_platform, aid))
         scp_row = cur.fetchone()
 
         if scp_row:
@@ -465,7 +484,7 @@ def claim_instagram_publish_slot(
                     "claimed": False,
                     "already_published": True,
                     "success": True,
-                    "platform": "INSTAGRAM",
+                    "platform": expected_platform,
                     "content_id": cid,
                     "account_id": aid,
                     "publish_status": "PUBLISHED",
@@ -486,11 +505,11 @@ def claim_instagram_publish_slot(
                             "claimed": False,
                             "is_processing": True,
                             "success": False,
-                            "platform": "INSTAGRAM",
+                            "platform": expected_platform,
                             "content_id": cid,
                             "account_id": aid,
                             "publish_status": "PROCESSING",
-                            "message": "Instagram publishing is already in progress.",
+                            "message": f"{label} publishing is already in progress.",
                             "status_code": 409
                         }
 
@@ -503,11 +522,11 @@ def claim_instagram_publish_slot(
                         "retry_limit_reached": True,
                         "retry_allowed": False,
                         "success": False,
-                        "platform": "INSTAGRAM",
+                        "platform": expected_platform,
                         "content_id": cid,
                         "account_id": aid,
                         "publish_status": "FAILED",
-                        "message": "Instagram publishing retry limit reached.",
+                        "message": f"{label} publishing retry limit reached.",
                         "status_code": 400
                     }
 
@@ -536,18 +555,18 @@ def claim_instagram_publish_slot(
                     claim_expires_at, last_attempt_at, updated_at
                 )
                 VALUES (
-                    %s, %s, 'INSTAGRAM', %s, %s,
+                    %s, %s, %s, %s, %s,
                     'PROCESSING', 'UPLOADING', 0, %s,
                     CURRENT_TIMESTAMP + (%s || ' seconds')::INTERVAL,
                     CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
                 )
                 RETURNING id;
-            """, (cid, aid, title, description, claim_token, str(lease_seconds)))
+            """, (cid, aid, expected_platform, title, description, claim_token, str(lease_seconds)))
             scp_id = cur.fetchone()[0]
             meta_container_id = None
 
         # Insert audit attempt with deterministic idempotency key
-        idempotency_key = f"ig_{user_id}_{cid}_{aid}_att_{new_attempt_number}"
+        idempotency_key = f"{IDEMPOTENCY_PREFIXES.get(expected_platform, expected_platform.lower())}_{user_id}_{cid}_{aid}_att_{new_attempt_number}"
         cur.execute("""
             INSERT INTO social_publish_attempts (
                 content_platform_id, attempt_number, status, idempotency_key, started_at

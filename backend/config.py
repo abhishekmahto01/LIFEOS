@@ -145,7 +145,7 @@ class Config:
     INSTAGRAM_SCOPES = [
         scope.strip() for scope in os.getenv(
             "INSTAGRAM_SCOPES",
-            "instagram_basic,instagram_content_publish,pages_show_list,pages_read_engagement,business_management"
+            "instagram_basic,instagram_content_publish,pages_show_list,pages_read_engagement,pages_manage_posts,business_management"
         ).split(",") if scope.strip()
     ]
 

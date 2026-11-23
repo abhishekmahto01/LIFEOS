@@ -41,7 +41,8 @@ export function ConnectedAccounts() {
       const channelDisplay = channel ? `: ${decodeURIComponent(channel)}` : "";
       return {
         type: "success",
-        message: `Successfully connected ${platformName === "INSTAGRAM" ? "Instagram" : platformName} account${channelDisplay}!`,
+        // The Meta login connects Instagram accounts and Facebook Pages together.
+        message: `Successfully connected ${platformName === "INSTAGRAM" ? "Instagram & Facebook" : platformName} account${channelDisplay}!`,
       };
     } else if (status === "error" || igParam === "error") {
       const errorMsg = OAUTH_ERROR_MESSAGES[errorCode] || `Failed to complete ${platform ? platform.toUpperCase() : "social"} OAuth connection.`;
@@ -122,14 +123,24 @@ export function ConnectedAccounts() {
   const isYtActive = ytAccount?.connection_status === "ACTIVE";
   const isYtExpired = ytAccount?.connection_status === "EXPIRED" || ytAccount?.connection_status === "ERROR";
 
-  const igAccount = accounts.find(
-    (a) => a.platform?.toUpperCase() === "INSTAGRAM"
+  // A user can have several Instagram Professional accounts (e.g. a public brand
+  // and a second creator account); every non-disconnected one is listed.
+  const igAccounts = accounts.filter(
+    (a) => a.platform?.toUpperCase() === "INSTAGRAM" && a.connection_status !== "DISCONNECTED"
   );
-  const isIgActive = igAccount?.connection_status === "ACTIVE";
-  const isIgExpired = igAccount?.connection_status === "EXPIRED";
-  const isIgError = igAccount?.connection_status === "ERROR";
-  const isIgRevoked = igAccount?.connection_status === "REVOKED";
-  const hasIgAccount = igAccount && igAccount.connection_status !== "DISCONNECTED";
+  const hasIgAccount = igAccounts.length > 0;
+  const igStatuses = igAccounts.map((a) => a.connection_status);
+  const isIgActive = hasIgAccount && igStatuses.every((s) => s === "ACTIVE");
+  const isIgExpired = igStatuses.includes("EXPIRED");
+  const isIgError = igStatuses.includes("ERROR");
+  const isIgRevoked = igStatuses.includes("REVOKED");
+
+  // Facebook Pages are connected by the same Meta login as Instagram.
+  const fbPages = accounts.filter(
+    (a) => a.platform?.toUpperCase() === "FACEBOOK" && a.connection_status !== "DISCONNECTED"
+  );
+  const hasFbPage = fbPages.length > 0;
+  const isFbActive = hasFbPage && fbPages.every((a) => a.connection_status === "ACTIVE");
 
   const handleConnectYouTube = async () => {
     try {
@@ -258,7 +269,7 @@ export function ConnectedAccounts() {
             Zero-Password Enterprise Security & Token Encryption
           </div>
           <div style={{ fontSize: "12px", color: "var(--text-muted, #64748b)" }}>
-            LifeOS connects exclusively through official Google OAuth 2.0. All OAuth tokens are encrypted at rest using Fernet authenticated encryption. Passwords are never requested or stored.
+            LifeOS connects exclusively through official Google and Meta OAuth 2.0. All OAuth tokens are encrypted at rest using Fernet authenticated encryption. Passwords are never requested or stored.
           </div>
         </div>
       </div>
@@ -393,7 +404,9 @@ export function ConnectedAccounts() {
               }`}
             >
               {isIgActive
-                ? "Connected"
+                ? igAccounts.length > 1
+                  ? `${igAccounts.length} Connected`
+                  : "Connected"
                 : isIgExpired
                 ? "Session Expired"
                 : isIgError
@@ -407,7 +420,8 @@ export function ConnectedAccounts() {
           <div className="sm-platform-card-body">
             {hasIgAccount ? (
               <div style={{ display: "flex", flexDirection: "column", gap: "8px", padding: "10px 0" }}>
-                <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+                {igAccounts.map((igAccount) => (
+                <div key={igAccount.id} style={{ display: "flex", alignItems: "center", gap: "12px" }}>
                   {igAccount.profile_image_url ? (
                     <img
                       src={igAccount.profile_image_url}
@@ -430,7 +444,7 @@ export function ConnectedAccounts() {
                       <Instagram size={22} />
                     </div>
                   )}
-                  <div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ fontSize: "14px", fontWeight: "700", color: "var(--text-primary, #0f172a)" }}>
                       {igAccount.account_name || igAccount.account_username || "Instagram Account"}
                     </div>
@@ -438,7 +452,17 @@ export function ConnectedAccounts() {
                       {igAccount.account_username ? `@${igAccount.account_username}` : `ID: ${igAccount.platform_account_id}`}
                     </div>
                   </div>
+                  <button
+                    className="sm-btn-secondary"
+                    style={{ fontSize: "11px", padding: "6px 10px", color: "#dc2626", borderColor: "rgba(220, 38, 38, 0.3)" }}
+                    onClick={() => handleDisconnect(igAccount.id, `@${igAccount.account_username || "Instagram account"}`)}
+                    disabled={actionLoading}
+                    aria-label={`Disconnect ${igAccount.account_username || "Instagram account"}`}
+                  >
+                    <Trash2 size={12} />
+                  </button>
                 </div>
+                ))}
                 {isIgExpired && (
                   <div style={{ fontSize: "11.5px", color: "#d97706", background: "rgba(245, 158, 11, 0.1)", padding: "6px 10px", borderRadius: "8px", border: "1px solid rgba(245, 158, 11, 0.25)" }}>
                     ⚠️ <strong>Session Expired:</strong> Your Meta authorization token has expired. Click <strong>Reconnect</strong> to restore API access.
@@ -476,15 +500,7 @@ export function ConnectedAccounts() {
                   onClick={handleConnectInstagram}
                   disabled={actionLoading}
                 >
-                  <RefreshCw size={13} style={{ marginRight: "6px" }} /> Reconnect
-                </button>
-                <button
-                  className="sm-btn-secondary"
-                  style={{ fontSize: "12px", padding: "8px 14px", color: "#dc2626", borderColor: "rgba(220, 38, 38, 0.3)" }}
-                  onClick={() => handleDisconnect(igAccount.id, "Instagram Account")}
-                  disabled={actionLoading}
-                >
-                  <Trash2 size={13} style={{ marginRight: "6px" }} /> Disconnect
+                  <RefreshCw size={13} style={{ marginRight: "6px" }} /> Reconnect / Add Account
                 </button>
               </>
             ) : (
@@ -512,25 +528,90 @@ export function ConnectedAccounts() {
                 <div className="sm-platform-type">Meta Page Video API</div>
               </div>
             </div>
-            <span className="sm-status-pill not-connected">Not Configured</span>
+            <span className={`sm-status-pill ${hasFbPage ? (isFbActive ? "connected" : "error") : "not-connected"}`}>
+              {hasFbPage
+                ? isFbActive
+                  ? fbPages.length > 1
+                    ? `${fbPages.length} Connected`
+                    : "Connected"
+                  : "Reconnect Required"
+                : "Not Connected"}
+            </span>
           </div>
 
           <div className="sm-platform-card-body">
-            <div style={{ fontSize: "12px", color: "var(--text-muted, #64748b)", marginBottom: "6px" }}>
-              <strong>Scope:</strong> pages_show_list, pages_manage_posts
-            </div>
-            <div style={{ fontSize: "12px", color: "var(--text-secondary, #334155)" }}>
-              Connect your official Facebook creator or business page (Stage 7).
-            </div>
+            {hasFbPage ? (
+              <div style={{ display: "flex", flexDirection: "column", gap: "8px", padding: "10px 0" }}>
+                {fbPages.map((page) => (
+                  <div key={page.id} style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+                    {page.profile_image_url ? (
+                      <img
+                        src={page.profile_image_url}
+                        alt={page.account_name}
+                        style={{ width: "42px", height: "42px", borderRadius: "50%", objectFit: "cover" }}
+                      />
+                    ) : (
+                      <div
+                        style={{
+                          width: "42px",
+                          height: "42px",
+                          borderRadius: "50%",
+                          background: "#1877f2",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          color: "#ffffff",
+                        }}
+                      >
+                        <Facebook size={22} />
+                      </div>
+                    )}
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: "14px", fontWeight: "700", color: "var(--text-primary, #0f172a)" }}>
+                        {page.account_name || "Facebook Page"}
+                      </div>
+                      <div style={{ fontSize: "12px", color: "var(--text-muted, #64748b)" }}>
+                        Page ID: {page.platform_account_id}
+                      </div>
+                    </div>
+                    <button
+                      className="sm-btn-secondary"
+                      style={{ fontSize: "11px", padding: "6px 10px", color: "#dc2626", borderColor: "rgba(220, 38, 38, 0.3)" }}
+                      onClick={() => handleDisconnect(page.id, page.account_name || "Facebook Page")}
+                      disabled={actionLoading}
+                      aria-label={`Disconnect ${page.account_name || "Facebook Page"}`}
+                    >
+                      <Trash2 size={12} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <>
+                <div style={{ fontSize: "12px", color: "var(--text-muted, #64748b)", marginBottom: "6px" }}>
+                  <strong>Scopes:</strong> pages_show_list, pages_manage_posts
+                </div>
+                <div style={{ fontSize: "12px", color: "var(--text-secondary, #334155)" }}>
+                  Facebook Pages connect through the same Meta login as Instagram. Click below and tick your Page when Facebook asks.
+                </div>
+              </>
+            )}
           </div>
 
-          <div className="sm-platform-card-footer">
+          <div className="sm-platform-card-footer" style={{ display: "flex", gap: "10px", justifyContent: "flex-end" }}>
             <button
-              className="sm-btn-primary"
-              style={{ fontSize: "12px", padding: "8px 16px", opacity: 0.5, cursor: "not-allowed" }}
-              disabled={true}
+              className={hasFbPage ? "sm-btn-secondary" : "sm-btn-primary"}
+              style={{ fontSize: "12px", padding: "8px 16px" }}
+              onClick={handleConnectInstagram}
+              disabled={actionLoading}
             >
-              + Connect Facebook (Phase 7)
+              {hasFbPage ? (
+                <>
+                  <RefreshCw size={13} style={{ marginRight: "6px" }} /> Reconnect with Meta
+                </>
+              ) : (
+                "+ Connect Facebook Page"
+              )}
             </button>
           </div>
         </div>

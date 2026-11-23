@@ -181,11 +181,17 @@ def handle_instagram_oauth_callback(raw_state: str, code: str = None, error: str
         headers = {"Authorization": f"Bearer {final_access_token}"}
         accounts_endpoint = f"{Config.META_GRAPH_API_BASE_URL}/{Config.META_GRAPH_API_VERSION}/me/accounts"
         accounts_params = {
-            "fields": "id,name,access_token,instagram_business_account{id,username,name,profile_picture_url}"
+            "fields": "id,name,access_token,picture{url},instagram_business_account{id,username,name,profile_picture_url}"
         }
 
-        instagram_account = None
-        fb_page_metadata = {}
+        # Every Instagram Professional account linked to any of the user's Pages is
+        # connected in one go, so a user with several IG accounts can pick per post.
+        # Each Page the user manages is also connected as a FACEBOOK account using its
+        # Page access token (required for posting videos to the Page).
+        discovered = []  # list of (instagram_account, fb_page_metadata)
+        seen_ig_ids = set()
+        fb_pages = []  # list of dicts: id, name, access_token, picture
+        seen_page_ids = set()
 
         try:
             accounts_resp = requests.get(accounts_endpoint, headers=headers, params=accounts_params, timeout=15)
@@ -194,68 +200,128 @@ def handle_instagram_oauth_callback(raw_state: str, code: str = None, error: str
                 pages = accounts_data.get("data", [])
 
                 for page in pages:
+                    page_id = str(page.get("id") or "")
+                    page_token = page.get("access_token")
+                    if page_id and page_token and page_id not in seen_page_ids:
+                        seen_page_ids.add(page_id)
+                        fb_pages.append({
+                            "id": page_id,
+                            "name": page.get("name") or "Facebook Page",
+                            "access_token": page_token,
+                            "picture": ((page.get("picture") or {}).get("data") or {}).get("url", "")
+                        })
+
                     ig_biz = page.get("instagram_business_account")
-                    if ig_biz and ig_biz.get("id"):
-                        instagram_account = {
-                            "id": ig_biz.get("id"),
+                    if not ig_biz or not ig_biz.get("id"):
+                        continue
+                    ig_id = str(ig_biz.get("id"))
+                    if ig_id in seen_ig_ids:
+                        continue
+                    seen_ig_ids.add(ig_id)
+                    discovered.append((
+                        {
+                            "id": ig_id,
                             "username": ig_biz.get("username", ""),
                             "name": ig_biz.get("name") or page.get("name", "Instagram Account"),
                             "profile_picture_url": ig_biz.get("profile_picture_url", "")
-                        }
-                        fb_page_metadata = {
+                        },
+                        {
                             "facebook_page_id": page.get("id"),
                             "facebook_page_name": page.get("name", "")
                         }
-                        break
+                    ))
         except Exception:
             pass
 
         # Fallback: Check direct /me endpoint if user connected via direct Instagram endpoint
-        if not instagram_account:
+        if not discovered and not fb_pages:
             try:
                 me_endpoint = f"{Config.META_GRAPH_API_BASE_URL}/{Config.META_GRAPH_API_VERSION}/me"
                 me_params = {"fields": "id,username,name,profile_picture_url,account_type"}
                 me_resp = requests.get(me_endpoint, headers=headers, params=me_params, timeout=15)
                 if me_resp.status_code == 200:
                     me_data = me_resp.json()
-                    if me_data.get("username") or me_data.get("id"):
-                        instagram_account = {
-                            "id": me_data.get("id"),
-                            "username": me_data.get("username", ""),
-                            "name": me_data.get("name", me_data.get("username", "Instagram Account")),
-                            "profile_picture_url": me_data.get("profile_picture_url", "")
-                        }
+                    if me_data.get("id"):
+                        discovered.append((
+                            {
+                                "id": str(me_data.get("id")),
+                                "username": me_data.get("username", ""),
+                                "name": me_data.get("name", me_data.get("username", "Instagram Account")),
+                                "profile_picture_url": me_data.get("profile_picture_url", "")
+                            },
+                            {}
+                        ))
             except Exception:
                 pass
 
-        if not instagram_account or not instagram_account.get("id"):
+        if not discovered and not fb_pages:
             return "instagram_account_not_found", None
-
-        ig_account_id = str(instagram_account["id"])
-        ig_username = instagram_account.get("username") or ig_account_id
-        ig_name = instagram_account.get("name") or ig_username
-        profile_img = instagram_account.get("profile_picture_url") or ""
 
         # 5. Encrypt access token at rest
         encrypted_access = encrypt_token(final_access_token)
-
-        # 6. Upsert into social_accounts table
         granted_scopes = ",".join(Config.INSTAGRAM_SCOPES) if isinstance(Config.INSTAGRAM_SCOPES, list) else str(Config.INSTAGRAM_SCOPES)
-        metadata = {
-            "instagram_user_id": ig_account_id,
-            "connected_at_utc": str(now_utc),
-            **fb_page_metadata
-        }
-        metadata_json = json.dumps(metadata)
 
-        cur.execute("""
+        # 6. Upsert each discovered account into social_accounts
+        connected = []
+        for instagram_account, fb_page_metadata in discovered:
+            ig_account_id = instagram_account["id"]
+            ig_username = instagram_account.get("username") or ig_account_id
+            ig_name = instagram_account.get("name") or ig_username
+            profile_img = instagram_account.get("profile_picture_url") or ""
+            metadata_json = json.dumps({
+                "instagram_user_id": ig_account_id,
+                "connected_at_utc": str(now_utc),
+                **fb_page_metadata
+            })
+            account_id = _upsert_meta_account(
+                cur, "INSTAGRAM", user_id, ig_account_id, ig_name, ig_username, profile_img,
+                encrypted_access, token_expires_at, granted_scopes, metadata_json
+            )
+            connected.append({"platform": "INSTAGRAM", "account_id": account_id, "username": ig_username, "name": ig_name, "account_id_str": ig_account_id})
+
+        # 7. Upsert each managed Facebook Page. Page tokens obtained from a long-lived
+        # user token do not expire, so token_expires_at stays NULL.
+        for page in fb_pages:
+            account_id = _upsert_meta_account(
+                cur, "FACEBOOK", user_id, page["id"], page["name"], None, page["picture"],
+                encrypt_token(page["access_token"]), None, granted_scopes,
+                json.dumps({"facebook_page_id": page["id"], "connected_at_utc": str(now_utc)})
+            )
+            connected.append({"platform": "FACEBOOK", "account_id": account_id, "username": page["name"], "name": page["name"], "account_id_str": page["id"]})
+
+        conn.commit()
+
+        first = connected[0]
+        return "success", {
+            "account_id": first["account_id"],
+            "username": ", ".join(c["username"] for c in connected),
+            "name": first["name"],
+            "account_id_str": first["account_id_str"],
+            "user_id": user_id,
+            "accounts": connected
+        }
+    except Exception:
+        if conn:
+            conn.rollback()
+        return "oauth_failed", None
+    finally:
+        if cur:
+            cur.close()
+        if conn:
+            conn.close()
+
+
+def _upsert_meta_account(cur, platform, user_id, ig_account_id, ig_name, ig_username, profile_img,
+                         encrypted_access, token_expires_at, granted_scopes, metadata_json) -> int:
+    """Insert or refresh one Instagram / Facebook Page account row and return its social_accounts id."""
+    cur.execute("""
             INSERT INTO social_accounts (
                 user_id, platform, platform_account_id, account_name, account_username,
                 profile_image_url, encrypted_access_token, encrypted_refresh_token,
                 token_expires_at, raw_scopes, connection_status, metadata, updated_at
             )
             VALUES (
-                %s, 'INSTAGRAM', %s, %s, %s,
+                %s, %s, %s, %s, %s,
                 %s, %s, NULL,
                 %s, %s, 'ACTIVE', %s::jsonb, CURRENT_TIMESTAMP
             )
@@ -271,30 +337,11 @@ def handle_instagram_oauth_callback(raw_state: str, code: str = None, error: str
                 updated_at = CURRENT_TIMESTAMP
             RETURNING id;
         """, (
-            user_id, ig_account_id, ig_name, ig_username,
+            user_id, platform, ig_account_id, ig_name, ig_username,
             profile_img, encrypted_access,
             token_expires_at, granted_scopes, metadata_json
         ))
-
-        account_id = cur.fetchone()[0]
-        conn.commit()
-
-        return "success", {
-            "account_id": account_id,
-            "username": ig_username,
-            "name": ig_name,
-            "account_id_str": ig_account_id,
-            "user_id": user_id
-        }
-    except Exception:
-        if conn:
-            conn.rollback()
-        return "oauth_failed", None
-    finally:
-        if cur:
-            cur.close()
-        if conn:
-            conn.close()
+    return cur.fetchone()[0]
 
 
 def is_instagram_token_expired(expires_at: datetime.datetime | None, threshold_minutes: int = 5) -> bool:

@@ -42,6 +42,9 @@ from services.youtube_publish_service import (
 from services.instagram_publish_service import (
     publish_instagram_reel
 )
+from services.facebook_publish_service import (
+    publish_facebook_video
+)
 from services.social_publish_service import (
     publish_content_to_platforms
 )
@@ -462,6 +465,32 @@ def publish_instagram_content_endpoint(current_user, content_id):
         content_id=content_id,
         account_id=account_id,
         custom_video_url=custom_video_url
+    )
+    status_code = res.pop("status_code", 200 if res.get("success") else 400)
+    return jsonify(res), status_code
+
+
+@social_blueprint.route("/content/<int:content_id>/publish/facebook", methods=["POST"])
+@module_required("social_media")
+def publish_facebook_content_endpoint(current_user, content_id):
+    """
+    Publish a specific content record's video to a connected Facebook Page.
+    Requires JSON body: {"account_id": 45}. Send {"retry": true} to retry a failed attempt.
+    """
+    user_id = current_user.get("user_id")
+    data = request.get_json(silent=True) or {}
+    account_id = data.get("account_id")
+
+    if account_id is None:
+        return jsonify({"success": False, "error": "account_id is required."}), 400
+    if not isinstance(account_id, int) or isinstance(account_id, bool) or account_id <= 0:
+        return jsonify({"success": False, "error": "account_id must be a positive integer."}), 400
+
+    res = publish_facebook_video(
+        user_id=user_id,
+        content_id=content_id,
+        account_id=account_id,
+        is_retry=data.get("retry") is True
     )
     status_code = res.pop("status_code", 200 if res.get("success") else 400)
     return jsonify(res), status_code
