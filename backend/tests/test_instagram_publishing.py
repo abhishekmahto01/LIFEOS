@@ -452,6 +452,64 @@ class TestInstagramPublishing(unittest.TestCase):
         conn.close()
 
     @patch("requests.post")
+    @patch("requests.get")
+    def test_18b_direct_upload_without_public_media_url(self, mock_get, mock_post):
+        """Without INSTAGRAM_MEDIA_BASE_URL the local file is sent via resumable upload (no tunnel needed)."""
+        Config.INSTAGRAM_MEDIA_BASE_URL = ""
+        cid = self._insert_social_content(user_id=self.user1_id, title="Localhost Reel")
+        aid = self._insert_instagram_account(user_id=self.user1_id, token="direct_upload_token")
+
+        mock_post.side_effect = [
+            MagicMock(status_code=200, json=lambda: {"id": "resumable_container_1",
+                                                     "uri": "https://rupload.facebook.com/ig-api-upload/v21.0/resumable_container_1"}),
+            MagicMock(status_code=200, json=lambda: {"success": True}),
+            MagicMock(status_code=200, json=lambda: {"id": "ig_media_direct_1"}),
+        ]
+        mock_get.side_effect = [
+            MagicMock(status_code=200, json=lambda: {"status_code": "FINISHED"}),
+            MagicMock(status_code=200, json=lambda: {"permalink": "https://www.instagram.com/reel/direct1/"}),
+        ]
+
+        res = self.app.post("/api/social-media/publish/instagram",
+                            json={"content_id": cid, "account_id": aid}, headers=self.headers_user1)
+        self.assertEqual(res.status_code, 200, res.get_json())
+        self.assertEqual(res.get_json()["publish_id"], "ig_media_direct_1")
+
+        # 1) container created as resumable, with no video_url
+        container_call = mock_post.call_args_list[0]
+        self.assertEqual(container_call.kwargs["data"]["upload_type"], "resumable")
+        self.assertNotIn("video_url", container_call.kwargs["data"])
+
+        # 2) video bytes posted to the rupload URI with OAuth + offset/file_size headers
+        upload_call = mock_post.call_args_list[1]
+        self.assertEqual(upload_call.args[0], "https://rupload.facebook.com/ig-api-upload/v21.0/resumable_container_1")
+        headers = upload_call.kwargs["headers"]
+        self.assertEqual(headers["Authorization"], "OAuth direct_upload_token")
+        self.assertEqual(headers["offset"], "0")
+        self.assertEqual(headers["file_size"], str(os.path.getsize(self.dummy_media_path)))
+
+    @patch("requests.post")
+    @patch("requests.get")
+    def test_18c_direct_upload_failure_is_recorded(self, mock_get, mock_post):
+        Config.INSTAGRAM_MEDIA_BASE_URL = ""
+        cid = self._insert_social_content(user_id=self.user1_id)
+        aid = self._insert_instagram_account(user_id=self.user1_id)
+
+        mock_post.side_effect = [
+            MagicMock(status_code=200, json=lambda: {"id": "resumable_container_2"}),
+            MagicMock(status_code=400, json=lambda: {"error": {"message": "Invalid file"}}),
+        ]
+
+        res = self.app.post("/api/social-media/publish/instagram",
+                            json={"content_id": cid, "account_id": aid}, headers=self.headers_user1)
+        self.assertEqual(res.status_code, 400)
+        self.assertIn("Instagram video upload failed", res.get_json()["error"])
+        # Fallback upload URI is built from the container ID when Meta omits "uri"
+        self.assertEqual(mock_post.call_args_list[1].args[0],
+                         "https://rupload.facebook.com/ig-api-upload/v21.0/resumable_container_2")
+        mock_get.assert_not_called()
+
+    @patch("requests.post")
     def test_19_final_publish_response_missing_media_id(self, mock_post):
         """Test Meta publish response missing media ID fails safely."""
         mock_resp = MagicMock()

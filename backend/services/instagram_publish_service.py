@@ -36,6 +36,9 @@ from utils.crypto import decrypt_token
 PLATFORM_LABELS = {"INSTAGRAM": "Instagram", "FACEBOOK": "Facebook Page"}
 IDEMPOTENCY_PREFIXES = {"INSTAGRAM": "ig", "FACEBOOK": "fb"}
 
+# Meta's host for resumable (direct) Reel uploads.
+INSTAGRAM_RUPLOAD_BASE_URL = "https://rupload.facebook.com"
+
 
 # =============================================================================
 # 1. Caption Formatting & Sanitization
@@ -177,6 +180,79 @@ def create_instagram_reel_container(
         raise ValueError("Meta Reel container creation response missing container ID.")
 
     return str(creation_id)
+
+
+def create_instagram_resumable_reel_container(
+    ig_user_id: str,
+    access_token: str,
+    caption: str = ""
+) -> tuple[str, str]:
+    """
+    Create a Reel container for direct (resumable) upload: POST /{ig_user_id}/media with
+    upload_type=resumable. Meta then accepts the video bytes directly, so no public video
+    URL / tunnel is needed. Returns (creation_id, upload_uri).
+    """
+    if not ig_user_id or not access_token:
+        raise ValueError("Instagram User ID and valid access token are required for container creation.")
+
+    endpoint = f"{Config.META_GRAPH_API_BASE_URL}/{Config.META_GRAPH_API_VERSION}/{ig_user_id}/media"
+    headers = {"Authorization": f"Bearer {access_token}"}
+    payload = {
+        "media_type": "REELS",
+        "upload_type": "resumable",
+        "caption": caption,
+        "share_to_feed": "true"
+    }
+
+    try:
+        resp = requests.post(endpoint, headers=headers, data=payload, timeout=30)
+    except Exception as e:
+        raise ValueError(f"Temporary failure connecting to Meta Graph API media endpoint: {str(e)}")
+
+    if resp.status_code != 200:
+        err_msg = _extract_sanitized_meta_error(resp)
+        raise ValueError(f"Meta Reel container creation failed (HTTP {resp.status_code}): {err_msg}")
+
+    try:
+        data = resp.json()
+    except Exception:
+        raise ValueError("Invalid JSON response received from Meta Graph API during container creation.")
+
+    creation_id = str(data.get("id") or "").strip()
+    if not creation_id:
+        raise ValueError("Meta Reel container creation response missing container ID.")
+
+    upload_uri = data.get("uri") or f"{INSTAGRAM_RUPLOAD_BASE_URL}/ig-api-upload/{Config.META_GRAPH_API_VERSION}/{creation_id}"
+    return creation_id, upload_uri
+
+
+def upload_instagram_reel_video(upload_uri: str, access_token: str, file_path: str) -> None:
+    """
+    Send the local video file to Meta's resumable upload endpoint in a single request
+    (offset 0, whole file). Raises ValueError on failure.
+    """
+    file_size = os.path.getsize(file_path)
+    headers = {
+        "Authorization": f"OAuth {access_token}",
+        "offset": "0",
+        "file_size": str(file_size),
+    }
+    try:
+        with open(file_path, "rb") as fh:
+            resp = requests.post(upload_uri, headers=headers, data=fh, timeout=(15, 600))
+    except Exception as e:
+        raise ValueError(f"Failed to upload video to Instagram: {re.sub(r'(access_token|EAA)[a-zA-Z0-9_-]+', '[REDACTED]', str(e))}")
+
+    if resp.status_code != 200:
+        err_msg = _extract_sanitized_meta_error(resp)
+        raise ValueError(f"Instagram video upload failed (HTTP {resp.status_code}): {err_msg}")
+
+    try:
+        ok = resp.json().get("success", True)
+    except Exception:
+        ok = True
+    if ok is False:
+        raise ValueError("Instagram video upload was not accepted by Meta.")
 
 
 def poll_instagram_container_status(
@@ -662,19 +738,32 @@ def publish_instagram_reel(
     start_time = time.time()
     creation_id = existing_container_id
 
-    # 2. Format caption and resolve public video URL
+    # 2. Format caption and choose how Meta gets the video:
+    #    - direct (resumable) upload of the local file — default, works on plain localhost;
+    #    - public URL ingestion — only when a custom URL or INSTAGRAM_MEDIA_BASE_URL is set.
     caption = format_instagram_caption(title=title, description=description, hashtags=tags)
 
-    try:
-        video_url = resolve_instagram_video_url(
-            content_id=content_id,
-            temp_media_path=temp_media_path,
-            custom_video_url=custom_video_url
-        )
-    except ValueError as e:
-        clean_err = re.sub(r"(access_token|EAA)[a-zA-Z0-9_-]+", "[REDACTED]", str(e))
-        _record_publish_failure(scp_id, attempt_id, content_id, clean_err, start_time)
-        return {"success": False, "error": clean_err, "publish_status": "FAILED", "status_code": 400}
+    use_direct_upload = not (custom_video_url and str(custom_video_url).strip()) and not Config.INSTAGRAM_MEDIA_BASE_URL
+    video_url = None
+    local_video_path = None
+
+    if use_direct_upload:
+        local_video_path = get_safe_temp_path(temp_media_path)
+        if not local_video_path or not os.path.exists(local_video_path):
+            err = "Local temporary video media not found on disk. Please re-upload."
+            _record_publish_failure(scp_id, attempt_id, content_id, err, start_time)
+            return {"success": False, "error": err, "publish_status": "FAILED", "status_code": 410}
+    else:
+        try:
+            video_url = resolve_instagram_video_url(
+                content_id=content_id,
+                temp_media_path=temp_media_path,
+                custom_video_url=custom_video_url
+            )
+        except ValueError as e:
+            clean_err = re.sub(r"(access_token|EAA)[a-zA-Z0-9_-]+", "[REDACTED]", str(e))
+            _record_publish_failure(scp_id, attempt_id, content_id, clean_err, start_time)
+            return {"success": False, "error": clean_err, "publish_status": "FAILED", "status_code": 400}
 
     # 3. Container Recovery or Creation
     container_ready = False
@@ -695,14 +784,24 @@ def publish_instagram_reel(
     # B. Create fresh container if needed
     if not creation_id or not container_ready:
         try:
-            creation_id = create_instagram_reel_container(
-                ig_user_id=ig_user_id,
-                access_token=access_token,
-                video_url=video_url,
-                caption=caption
-            )
-            # Immediately persist meta_container_id for recovery
-            _save_meta_container_id(scp_id, creation_id)
+            if use_direct_upload:
+                creation_id, upload_uri = create_instagram_resumable_reel_container(
+                    ig_user_id=ig_user_id,
+                    access_token=access_token,
+                    caption=caption
+                )
+                # Persist before uploading so a crash mid-upload can be inspected/recovered
+                _save_meta_container_id(scp_id, creation_id)
+                upload_instagram_reel_video(upload_uri, access_token, local_video_path)
+            else:
+                creation_id = create_instagram_reel_container(
+                    ig_user_id=ig_user_id,
+                    access_token=access_token,
+                    video_url=video_url,
+                    caption=caption
+                )
+                # Immediately persist meta_container_id for recovery
+                _save_meta_container_id(scp_id, creation_id)
         except Exception as e:
             clean_err = re.sub(r"(access_token|EAA)[a-zA-Z0-9_-]+", "[REDACTED]", str(e))
             _record_publish_failure(scp_id, attempt_id, content_id, clean_err, start_time)
